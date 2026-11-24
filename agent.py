@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).parent
 AGENT_HOME = ROOT / "data" / "agent-home"   # the agent's own $HOME (and ~/.claude)
 WORKSPACE = ROOT / "agent"                  # where the agent works
+SESSION_FILE = ROOT / "data" / "session.json"  # which conversation to continue
 
 
 def read_env_file(*names):
@@ -30,7 +31,10 @@ token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN") or read_env_file(".env", ".env
 if not token:
     sys.exit("No CLAUDE_CODE_OAUTH_TOKEN. Run `claude setup-token` and put it in .env")
 
-prompt = " ".join(sys.argv[1:]) or input("Enter your prompt> ")
+args = sys.argv[1:]
+new_session = "--new" in args
+args = [a for a in args if a != "--new"]
+prompt = " ".join(args) or input("Enter your prompt> ")
 
 AGENT_HOME.mkdir(parents=True, exist_ok=True)
 WORKSPACE.mkdir(exist_ok=True)
@@ -46,6 +50,7 @@ env = {
     "TMPDIR": os.environ.get("TMPDIR", "/tmp"),
     "CLAUDE_CODE_OAUTH_TOKEN": token,  # subscription login via `claude setup-token`
     "DISABLE_AUTOUPDATER": "1",        # don't install updates into the agent's home
+    "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",  # memory is ours to build (stage 6), not Claude Code's
 }
 
 # Only the built-in tools the agent needs. Leaving out Claude Code's own
@@ -53,9 +58,20 @@ env = {
 # matters: they only live inside one session, so they'd silently never fire.
 TOOLS = "Bash,Read,Edit,Write,WebSearch,WebFetch,Skill,ToolSearch,Task"
 
+command = [
+    "claude", "-p", prompt, "--output-format", "json", "--model", "sonnet",
+    "--tools", TOOLS,
+]
+
+# Continue the previous conversation unless --new was passed.
+session_id = None
+if not new_session and SESSION_FILE.exists():
+    session_id = json.loads(SESSION_FILE.read_text())["session_id"]
+    command += ["--resume", session_id]
+print("resuming session", session_id if session_id else "(new session)")
+
 result = subprocess.run(
-    ["claude", "-p", prompt, "--output-format", "json", "--model", "sonnet",
-     "--tools", TOOLS],
+    command,
     cwd=WORKSPACE,
     capture_output=True,
     text=True,
@@ -69,6 +85,9 @@ if result.returncode != 0:
 
 data = json.loads(result.stdout)
 usage = data["usage"]
+
+# Remember this conversation for the next run.
+SESSION_FILE.write_text(json.dumps({"session_id": data["session_id"]}))
 
 print("\nAgent: ", data["result"], "\n")
 print({
