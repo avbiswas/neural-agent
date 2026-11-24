@@ -6,11 +6,16 @@ DB_PATH = Path(__file__).parent / "data" / "harness.db"
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS events (
     id         INTEGER PRIMARY KEY,
-    source     TEXT NOT NULL,                    -- who woke the agent: 'cli', later 'telegram', 'timer'
+    source     TEXT NOT NULL,                 -- who woke the agent: 'cli', later 'telegram', 'timer'
     text       TEXT NOT NULL,
     status     TEXT NOT NULL DEFAULT 'pending',  -- pending -> processing -> done | failed
     reply      TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS sessions (
+    key        TEXT PRIMARY KEY,              -- a conversation, e.g. 'chat'
+    session_id TEXT NOT NULL,                 -- the engine's session id
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 """
 
