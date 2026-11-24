@@ -1,0 +1,17 @@
+# planning material (kept locally, not part of the tutorial repo)
+planner/
+DESIGN.md
+
+# python
+__pycache__/
+*.pyc
+.venv/
+
+# instance data and secrets: never committed
+.env
+.envrc
+secrets/
+data/
+*.db
+*.db-wal
+*.db-shm
