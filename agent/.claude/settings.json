@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Skill",
+      "WebSearch",
+      "WebFetch",
+      "Bash(python3 .claude/skills/sites/list_sites.py)"
+    ]
+  }
+}

@@ -15,3 +15,5 @@ data/
 *.db
 *.db-wal
 *.db-shm
+# the agent's sites are instance data (the sites skill itself is committed)
+agent/sites/

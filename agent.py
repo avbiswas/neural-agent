@@ -49,9 +49,8 @@ def read_env_file(*names):
 def agent_env():
     """A clean environment: nothing from your shell leaks in, and HOME points at
     the agent's own home, so Claude Code ignores your plugins, skills, MCP, CLAUDE.md."""
-    token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN") or read_env_file(".env", ".envrc").get(
-        "CLAUDE_CODE_OAUTH_TOKEN"
-    )
+    config = {**read_env_file(".env", ".envrc"), **os.environ}
+    token = config.get("CLAUDE_CODE_OAUTH_TOKEN")
     if not token:
         sys.exit("No CLAUDE_CODE_OAUTH_TOKEN. Run `claude setup-token` and put it in .env")
     return {
@@ -63,7 +62,21 @@ def agent_env():
         "CLAUDE_CODE_OAUTH_TOKEN": token,          # subscription login via `claude setup-token`
         "DISABLE_AUTOUPDATER": "1",                # don't install updates into the agent's home
         "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",    # memory is ours to build, not Claude Code's
+        # Where the agent's sites are reachable (the sites skill prints links with it).
+        "SITES_URL": config.get("SITES_URL", "http://127.0.0.1:8080"),
     }
+
+
+def trust_workspace():
+    """Claude Code ignores a project's .claude/settings.json until you accept a
+    one-time "trust this folder" dialog. This is the agent's own home, so we
+    record that answer for it directly."""
+    path = AGENT_HOME / ".claude.json"
+    data = json.loads(path.read_text()) if path.exists() else {}
+    project = data.setdefault("projects", {}).setdefault(str(ROOT), {})
+    if not project.get("hasTrustDialogAccepted"):
+        project["hasTrustDialogAccepted"] = True
+        path.write_text(json.dumps(data, indent=2))
 
 
 def run_agent(prompt, session_id=None, more_messages=lambda: []):
@@ -74,6 +87,7 @@ def run_agent(prompt, session_id=None, more_messages=lambda: []):
     them at its next step, so the user can redirect a turn that's in progress."""
     AGENT_HOME.mkdir(parents=True, exist_ok=True)
     WORKSPACE.mkdir(exist_ok=True)
+    trust_workspace()
 
     # stream-json in both directions: user messages go in on stdin as JSON
     # lines, and events come out on stdout as JSON lines. The process lives
@@ -82,6 +96,7 @@ def run_agent(prompt, session_id=None, more_messages=lambda: []):
                "--output-format", "stream-json", "--verbose",
                "--model", "sonnet", "--tools", TOOLS,
                "--append-system-prompt", APPEND_SYSTEM_PROMPT]
+    # What the agent may do without asking lives in agent/.claude/settings.json.
     if session_id:
         command += ["--resume", session_id]
     proc = subprocess.Popen(command, cwd=WORKSPACE, env=agent_env(), text=True,
