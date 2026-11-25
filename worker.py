@@ -31,8 +31,8 @@ while True:
     # Batching: if it's a user message, also claim every other pending user
     # message, so "hi" / "one more thing" / "actually..." become one run.
     events = [event]
+    marks = ",".join("?" * len(USER_SOURCES))
     if event["source"] in USER_SOURCES:
-        marks = ",".join("?" * len(USER_SOURCES))
         events += db.execute(f"""
             UPDATE events SET status = 'processing'
             WHERE status = 'pending' AND source IN ({marks})
@@ -48,16 +48,32 @@ while True:
             f"- {e['text']}" for e in events)
     print(f"worker: {ids} pending -> processing   {prompt!r}")
 
+    # Steering: user messages that arrive while the agent is running get
+    # claimed and pushed straight into the running turn.
+    def more_messages():
+        if events[0]["source"] not in USER_SOURCES:
+            return []
+        new = db.execute(f"""
+            UPDATE events SET status = 'processing'
+            WHERE status = 'pending' AND source IN ({marks})
+            RETURNING *
+        """, USER_SOURCES).fetchall()
+        for e in new:
+            print(f"worker: #{e['id']} pending -> processing   {e['text']!r}  (steered into the running turn)")
+        events.extend(new)
+        return [e["text"] for e in new]
+
     # Every event continues one 'chat' conversation (for now).
     row = db.execute("SELECT session_id FROM sessions WHERE key = 'chat'").fetchone()
     try:
-        result = run_agent(prompt, row["session_id"] if row else None)
+        result = run_agent(prompt, row["session_id"] if row else None, more_messages)
     except Exception as error:
         db.executemany("UPDATE events SET status = 'failed', reply = ? WHERE id = ?",
                        [(str(error), e["id"]) for e in events])
-        print(f"worker: {ids} processing -> failed    {error}")
+        print(f"worker: {' '.join(f'#{e[0]}' for e in events)} processing -> failed    {error}")
         continue
     reply = result["text"]
+    ids = " ".join(f"#{e['id']}" for e in events)
 
     db.execute("""
         INSERT INTO sessions (key, session_id) VALUES ('chat', ?)

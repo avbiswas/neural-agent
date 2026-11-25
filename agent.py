@@ -1,9 +1,13 @@
 """The only engine-specific code. To use Codex (or anything else), rewrite
-run_agent(): run a prompt, optionally resume a session, return text + session id."""
+run_agent(): run a prompt, optionally resume a session, return text + session id.
+(Steering is optional: an engine that can't do it just never calls more_messages.)"""
 import json
 import os
+import queue
 import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).parent
@@ -14,6 +18,17 @@ WORKSPACE = ROOT / "agent"                  # where the agent works
 # scheduling/notification tools (CronCreate, ScheduleWakeup, PushNotification...)
 # matters: they only live inside one session, so they'd silently never fire.
 TOOLS = "Bash,Read,Edit,Write,WebSearch,WebFetch,Skill,ToolSearch,Task"
+
+# Added on top of Claude Code's own system prompt. Only the last message of a
+# turn reaches the person (see `result`); everything before it stays internal.
+APPEND_SYSTEM_PROMPT = """\
+You are a personal assistant that the person can reach at any time. You are not \
+running all the time: a harness wakes you up for each incoming message or event, \
+you handle it in one turn, and then you stop until the next one. The person talks \
+to you through a chat app, and they only see the final message of each turn. \
+Anything you write before or between tool calls is never shown to them. So make \
+your final message a complete answer on its own: what you did, what you found, \
+or what you need from them. Write it like a chat message, not a report."""
 
 
 def read_env_file(*names):
@@ -51,31 +66,75 @@ def agent_env():
     }
 
 
-def run_agent(prompt, session_id=None):
-    """Run one turn. session_id=None starts a new session, otherwise resumes it."""
+def run_agent(prompt, session_id=None, more_messages=lambda: []):
+    """Run one turn. session_id=None starts a new session, otherwise resumes it.
+
+    Steering: while the turn runs we call more_messages() about once a second.
+    Any texts it returns are written to the running process, and Claude reads
+    them at its next step, so the user can redirect a turn that's in progress."""
     AGENT_HOME.mkdir(parents=True, exist_ok=True)
     WORKSPACE.mkdir(exist_ok=True)
 
-    command = ["claude", "-p", prompt, "--output-format", "json",
-               "--model", "sonnet", "--tools", TOOLS]
+    # stream-json in both directions: user messages go in on stdin as JSON
+    # lines, and events come out on stdout as JSON lines. The process lives
+    # until we close stdin.
+    command = ["claude", "-p", "--input-format", "stream-json",
+               "--output-format", "stream-json", "--verbose",
+               "--model", "sonnet", "--tools", TOOLS,
+               "--append-system-prompt", APPEND_SYSTEM_PROMPT]
     if session_id:
         command += ["--resume", session_id]
+    proc = subprocess.Popen(command, cwd=WORKSPACE, env=agent_env(), text=True,
+                            stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
-    result = subprocess.run(command, cwd=WORKSPACE, env=agent_env(),
-                            capture_output=True, text=True, timeout=600)
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr or result.stdout)
+    def send(text):
+        proc.stdin.write(json.dumps({"type": "user",
+                                     "message": {"role": "user", "content": text}}) + "\n")
+        proc.stdin.flush()
 
-    data = json.loads(result.stdout)
-    usage = data["usage"]
+    # A background thread reads stdout, so the loop below can also check for
+    # new messages while Claude is busy.
+    lines = queue.Queue()
+    def read_stdout():
+        for line in iter(proc.stdout.readline, ""):
+            lines.put(line)
+        lines.put(None)  # process exited
+    threading.Thread(target=read_stdout, daemon=True).start()
+
+    send(prompt)
+    results, last_check, deadline = [], 0, time.time() + 600
+    while True:
+        if not proc.stdin.closed and time.time() - last_check >= 1:
+            for text in more_messages():
+                send(text)
+            last_check = time.time()
+        if time.time() > deadline:
+            proc.kill()
+            raise RuntimeError("agent timed out")
+        try:
+            line = lines.get(timeout=0.2)
+        except queue.Empty:
+            continue
+        if line is None:
+            break
+        event = json.loads(line)
+        if event["type"] == "result":
+            results.append(event)
+            # The turn is over: closing stdin tells claude to exit. (A message
+            # that slipped in just before this still gets its own result.)
+            if not proc.stdin.closed:
+                proc.stdin.close()
+
+    if proc.wait() != 0 or not results or results[-1].get("is_error"):
+        raise RuntimeError(results[-1].get("result") if results else "agent exited without a result")
+    usage = [r["usage"] for r in results]
     return {
-        "text": data["result"],
-        "session_id": data["session_id"],
-        "cost_usd": data.get("total_cost_usd"),
-        "input_tokens": usage["input_tokens"]
-        + usage["cache_creation_input_tokens"]
-        + usage["cache_read_input_tokens"],
-        "output_tokens": usage["output_tokens"],
+        "text": "\n\n".join(r["result"] for r in results),
+        "session_id": results[-1]["session_id"],
+        "cost_usd": sum(r.get("total_cost_usd") or 0 for r in results),
+        "input_tokens": sum(u["input_tokens"] + u["cache_creation_input_tokens"]
+                            + u["cache_read_input_tokens"] for u in usage),
+        "output_tokens": sum(u["output_tokens"] for u in usage),
     }
 
 
