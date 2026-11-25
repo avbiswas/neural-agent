@@ -7,7 +7,7 @@ db = connect()
 
 # Sources that are a person chatting. Their pending messages get batched;
 # everything else (timers, later) runs one event at a time.
-USER_SOURCES = ("cli",)
+USER_SOURCES = ("cli", "telegram")
 
 # Crash recovery: anything a dead worker left 'processing' goes back in the queue.
 recovered = db.execute("UPDATE events SET status = 'pending' WHERE status = 'processing'").rowcount
