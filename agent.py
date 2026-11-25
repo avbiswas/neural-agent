@@ -29,7 +29,14 @@ you handle it in one turn, and then you stop until the next one. The person talk
 to you through a chat app, and they only see the final message of each turn. \
 Anything you write before or between tool calls is never shown to them. So make \
 your final message a complete answer on its own: what you did, what you found, \
-or what you need from them. Write it like a chat message, not a report."""
+or what you need from them. Write it like a chat message, not a report.
+
+You also have a send_message tool that messages the person immediately, while \
+you're still working. Use it for one short heads-up before work that will take \
+more than a minute, like web research, building a site or a multi-step task \
+("On it, this will take a few minutes."). Skip it for quick answers. Don't \
+narrate your steps with it, and don't repeat your final message, which they get \
+anyway."""
 
 
 def read_env_file(*names):
@@ -68,6 +75,16 @@ def agent_env():
     }
 
 
+def mcp_config(channel):
+    """Our MCP server (harness_mcp.py), started by Claude Code for this run.
+    Its tools show up to the agent as mcp__harness__<tool>."""
+    return {"mcpServers": {"harness": {
+        "command": sys.executable,  # this project's Python, which has the mcp package
+        "args": [str(ROOT / "harness_mcp.py")],
+        "env": {"HARNESS_CHANNEL": channel},
+    }}}
+
+
 def trust_workspace():
     """Claude Code ignores a project's .claude/settings.json until you accept a
     one-time "trust this folder" dialog. This is the agent's own home, so we
@@ -80,8 +97,9 @@ def trust_workspace():
         path.write_text(json.dumps(data, indent=2))
 
 
-def run_agent(prompt, session_id=None, more_messages=lambda: []):
+def run_agent(prompt, session_id=None, more_messages=lambda: [], channel="cli"):
     """Run one turn. session_id=None starts a new session, otherwise resumes it.
+    channel is where the agent's send_message tool delivers ('cli', 'telegram').
 
     Steering: while the turn runs we call more_messages() about once a second.
     Any texts it returns are written to the running process, and Claude reads
@@ -101,7 +119,8 @@ def run_agent(prompt, session_id=None, more_messages=lambda: []):
     command = ["claude", "-p", "--input-format", "stream-json",
                "--output-format", "stream-json", "--verbose",
                "--model", "sonnet", "--tools", TOOLS,
-               "--append-system-prompt", APPEND_SYSTEM_PROMPT]
+               "--append-system-prompt", APPEND_SYSTEM_PROMPT,
+               "--mcp-config", json.dumps(mcp_config(channel))]
     # What the agent may do without asking lives in agent/.claude/settings.json.
     if session_id:
         command += ["--resume", session_id]

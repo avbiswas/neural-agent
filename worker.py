@@ -101,7 +101,7 @@ while True:
     session_id, why = pick_session()
     print(f"        session: {why}")
     try:
-        result = run_agent(prompt, session_id, more_messages)
+        result = run_agent(prompt, session_id, more_messages, channel=events[0]["source"])
     except Exception as error:
         db.executemany("UPDATE events SET status = 'failed', reply = ? WHERE id = ?",
                        [(str(error), e["id"]) for e in events])

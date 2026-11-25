@@ -5,6 +5,7 @@
       "Skill",
       "WebSearch",
       "WebFetch",
+      "mcp__harness__send_message",
       "Bash(python3 .claude/skills/sites/list_sites.py)"
     ]
   }
