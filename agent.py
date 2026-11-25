@@ -118,6 +118,7 @@ def run_agent(prompt, session_id=None, more_messages=lambda: []):
 
     send(prompt)
     results, last_check, deadline = [], 0, time.time() + 600
+    context_tokens = 0  # size of the conversation at the latest model call
     while True:
         if not proc.stdin.closed and time.time() - last_check >= 1:
             for text in more_messages():
@@ -133,6 +134,10 @@ def run_agent(prompt, session_id=None, more_messages=lambda: []):
         if line is None:
             break
         event = json.loads(line)
+        if event["type"] == "assistant" and event["message"].get("usage"):
+            u = event["message"]["usage"]
+            context_tokens = (u["input_tokens"] + u.get("cache_creation_input_tokens", 0)
+                              + u.get("cache_read_input_tokens", 0) + u["output_tokens"])
         if event["type"] == "result":
             results.append(event)
             # The turn is over: closing stdin tells claude to exit. (A message
@@ -140,8 +145,16 @@ def run_agent(prompt, session_id=None, more_messages=lambda: []):
             if not proc.stdin.closed:
                 proc.stdin.close()
 
-    if proc.wait() != 0 or not results or results[-1].get("is_error"):
-        raise RuntimeError(results[-1].get("result") if results else "agent exited without a result")
+    proc.wait()
+    if not results:
+        raise RuntimeError("agent exited without a result")
+    if results[-1].get("is_error"):
+        error = results[-1].get("result") or "; ".join(results[-1].get("errors", []))
+        # The saved session is gone (deleted, or a different machine): start fresh.
+        if session_id and "No conversation found" in error:
+            print("agent: session not found, starting a new one")
+            return run_agent(prompt, None, more_messages)
+        raise RuntimeError(error)
     usage = [r["usage"] for r in results]
     return {
         "text": "\n\n".join(r["result"] for r in results),
@@ -150,6 +163,7 @@ def run_agent(prompt, session_id=None, more_messages=lambda: []):
         "input_tokens": sum(u["input_tokens"] + u["cache_creation_input_tokens"]
                             + u["cache_read_input_tokens"] for u in usage),
         "output_tokens": sum(u["output_tokens"] for u in usage),
+        "context_tokens": context_tokens,
     }
 
 
