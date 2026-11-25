@@ -17,6 +17,13 @@ CREATE TABLE IF NOT EXISTS sessions (
     session_id TEXT NOT NULL,                 -- the engine's session id
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS outbox (
+    id         INTEGER PRIMARY KEY,
+    channel    TEXT NOT NULL,                 -- where it goes: 'cli', later 'telegram'
+    text       TEXT NOT NULL,
+    status     TEXT NOT NULL DEFAULT 'pending',  -- pending -> sent
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 

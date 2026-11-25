@@ -82,6 +82,11 @@ while True:
     """, (result["session_id"],))
     db.executemany("UPDATE events SET status = 'done', reply = ? WHERE id = ?",
                    [(reply, e["id"]) for e in events])
+    # The outbox: the reply goes back to the channel the message came from.
+    # The worker only writes it; a channel process (console.py) delivers it.
+    if events[0]["source"] in USER_SOURCES:
+        db.execute("INSERT INTO outbox (channel, text) VALUES (?, ?)",
+                   (events[0]["source"], reply))
     print(f"worker: {ids} processing -> done      reply={reply!r}")
     print(f"        tokens in={result['input_tokens']} out={result['output_tokens']} "
           f"cost=${result['cost_usd']:.4f}")
