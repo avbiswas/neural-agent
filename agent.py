@@ -13,6 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).parent
 AGENT_HOME = ROOT / "data" / "agent-home"   # the agent's own $HOME (and ~/.claude)
 WORKSPACE = ROOT / "agent"                  # where the agent works
+MEMORY = WORKSPACE / "memory"               # its memory across sessions (see agent/CLAUDE.md)
 
 # Only the built-in tools the agent needs. Leaving out Claude Code's own
 # scheduling/notification tools (CronCreate, ScheduleWakeup, PushNotification...)
@@ -88,6 +89,11 @@ def run_agent(prompt, session_id=None, more_messages=lambda: []):
     AGENT_HOME.mkdir(parents=True, exist_ok=True)
     WORKSPACE.mkdir(exist_ok=True)
     trust_workspace()
+    # Start with empty memory files the first time; the agent fills them in.
+    (MEMORY / "notes").mkdir(parents=True, exist_ok=True)
+    for name, heading in [("instructions.md", "# Standing orders"), ("index.md", "# Memory index")]:
+        if not (MEMORY / name).exists():
+            (MEMORY / name).write_text(heading + "\n")
 
     # stream-json in both directions: user messages go in on stdin as JSON
     # lines, and events come out on stdout as JSON lines. The process lives

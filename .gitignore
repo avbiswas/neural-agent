@@ -17,3 +17,5 @@ data/
 *.db-shm
 # the agent's sites are instance data (the sites skill itself is committed)
 agent/sites/
+# the agent's memory is instance data (agent/CLAUDE.md, which explains it, is committed)
+agent/memory/
