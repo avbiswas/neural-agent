@@ -216,6 +216,8 @@ class Wizard(github.Setup):  # the GitHub app pages (/github, /created, /install
                      "github": bool(github.load_app())}
             page = PAGE.replace("/*STATE*/{}", json.dumps(state)).replace("<!--APP_FORM-->", github.APP_FORM)
             return self.reply(200, page)
+        if self.path == "/github/status":  # the page asks when you come back from GitHub's tab
+            return self.reply(200, json.dumps({"ok": bool(github.load_app())}))
         super().do_GET()
 
     def do_POST(self):

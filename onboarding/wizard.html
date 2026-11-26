@@ -82,6 +82,16 @@ function mark() {
 for (const id of ["claude", "telegram", "tailscale", "github"])
   if (state[id]) document.querySelector(`#s-${id} .already`).hidden = false;
 if (state.github) document.getElementById("gh-todo").hidden = true;
+// GitHub opens in its own tab: when you come back here, see whether it's connected.
+window.addEventListener("focus", async () => {
+  if (state.github) return;
+  try { state.github = (await (await fetch("/github/status")).json()).ok; } catch (error) { return; }
+  if (state.github) {
+    document.getElementById("gh-todo").hidden = true;
+    document.querySelector("#s-github .already").hidden = false;
+    mark();
+  }
+});
 document.getElementById("tz").value = state.tz || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 const messages = {

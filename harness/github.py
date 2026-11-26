@@ -113,7 +113,7 @@ MANIFEST = {
     "hook_attributes": {"url": "https://example.com/", "active": False},  # no webhooks
 }
 # The button that starts it: a form that posts the manifest to GitHub.
-APP_FORM = f"""<form method="post" action="https://github.com/settings/apps/new?state={STATE}">
+APP_FORM = f"""<form method="post" action="https://github.com/settings/apps/new?state={STATE}" target="_blank">
 <input type="hidden" name="manifest" value="{html.escape(json.dumps(MANIFEST))}">
 <button>Create GitHub App</button></form>"""
 NEW_REPO = "https://github.com/new?name={}&visibility=private"  # GitHub's form, filled in
@@ -148,15 +148,11 @@ class Setup(http.server.BaseHTTPRequestHandler):
             app["backup_repo"] = workspace
             save_app(app)
             print(f"github: installed. Workspace -> {workspace}, chat log -> {history}. Done.")
-            if getattr(self.server, "wizard", False):  # part of ./setup --web: back to its page
-                self.send_response(302)
-                self.send_header("Location", "/#github")
-                self.end_headers()
-                return
             self.reply(200, f"<h1>Done.</h1><p>Workspace backs up to <b>{workspace or '(none picked)'}</b>, "
                             f"conversations to <b>{history or '(no repo ending in -history or -chats)'}</b>. "
                             "You can close this tab.</p>")
-            threading.Thread(target=self.server.shutdown).start()
+            if not getattr(self.server, "wizard", False):  # ./setup --web keeps running until Finish
+                threading.Thread(target=self.server.shutdown).start()
         else:
             self.reply(400, "Unexpected request. Start again from the first page.")
 
