@@ -4,6 +4,7 @@ from db import connect
 from agent import run_agent
 from commit import commit
 from dream import dream
+from history import log
 
 db = connect()
 
@@ -182,6 +183,8 @@ while True:
     # -> outbox, delivered by console.py / telegram.py. A timer run's final
     # text stays here: it only reaches the person through send_message.
     reply_to(events, reply)
+    if event["source"] in USER_SOURCES:  # the conversation log (history.py)
+        log(event["source"], "\n".join(e["text"] for e in events), reply)
     print(f"worker: {ids} processing -> done      reply={reply!r}")
     print(f"        tokens in={result['input_tokens']} out={result['output_tokens']} "
           f"context={result['context_tokens']} cost=${result['cost_usd']:.4f}")

@@ -18,5 +18,9 @@ what you couldn't look up again; for things that live elsewhere (a site, a
 repo, a link), save a pointer instead of a copy. If a note turns out to be
 wrong, fix it.
 
+`history/` has a log of every conversation, one file a day (`history/2026-11-26.md`),
+written by the harness: the person's messages and your replies, in chat and in
+site chats. When they refer to something you don't remember, grep it. Never edit it.
+
 @memory/instructions.md
 @memory/index.md

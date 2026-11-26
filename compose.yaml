@@ -44,7 +44,8 @@ services:
       MCP_URL: http://mcp:8001/mcp
     volumes:
       - harness-data:/app/data  # also holds the GitHub app's key (data/github-app.json)
-      - ./agent:/app/agent    # to read memory sizes after a dream
+      - ./agent:/app/agent    # memory sizes after a dream; the conversation log
+      - agent-secrets:/run/agent-secrets:ro       # to mask secrets in the log
       - workspace-git:/app/data/workspace.git:ro  # to commit-check and back up the history
 
   mcp:
@@ -77,10 +78,13 @@ services:
     environment:
       SITES_HOST: 0.0.0.0
       RUNNER: runner:9000   # site chats run in the runner, like everything the agent does
+      TZ: ${TZ:-UTC}        # local times in the conversation log
     ports:
       - 127.0.0.1:8080:8080
     volumes:
       - ./agent/sites:/app/agent/sites:ro
+      - ./agent/history:/app/agent/history        # site chats go in the conversation log
+      - agent-secrets:/run/agent-secrets:ro       # to mask secrets in the log
 
   # The secrets page (see secrets_page.py): the only service that writes them.
   secrets:

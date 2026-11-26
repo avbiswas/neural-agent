@@ -20,6 +20,7 @@ import secrets
 from pathlib import Path
 
 from agent import WORKSPACE, run_agent
+from history import log
 
 SITES = Path(__file__).parent / "agent" / "sites"
 SITES.mkdir(parents=True, exist_ok=True)
@@ -113,6 +114,7 @@ class Sites(http.server.SimpleHTTPRequestHandler):
                                on_event=lambda e: (line := status(e)) and send({"status": line}))
             chat["session"] = result["session_id"]
             chat["history"].append((body["message"], result["text"]))
+            log(f"site chat: {site} · {model}", body["message"], result["text"])
             send({"reply": result["text"], "changed": last_change(folder) != before})
         except Exception as error:
             send({"reply": f"Something went wrong: {error}", "error": True})
