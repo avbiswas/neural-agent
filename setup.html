@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Set up your agent</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --fg:#16181d; --muted:#6b7280; --line:#e5e7eb; --accent:#4f46e5; --ok:#059669; --bad:#dc2626; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111216; --card:#1a1c21; --fg:#e8e9ed; --muted:#9ca3af; --line:#2c2e35; --accent:#818cf8; --ok:#34d399; --bad:#f87171; } }
+  * { box-sizing: border-box }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif }
+  main { max-width:640px; margin:0 auto; padding:40px 18px 80px }
+  h1 { margin:0 0 4px; font-size:26px } .lead { color:var(--muted); margin:0 0 28px }
+  .step { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin-bottom:14px }
+  .step h2 { display:flex; align-items:center; gap:10px; margin:0 0 8px; font-size:17px }
+  .num { width:26px; height:26px; border-radius:50%; display:grid; place-items:center; background:var(--line); font-size:13px; font-weight:700 }
+  .step.done .num { background:var(--ok); color:#fff } .step.done .num::after { content:"✓" } .step.done .num span { display:none }
+  .step p, .step ol { margin:6px 0 } ol { padding-left:20px } a { color:var(--accent) }
+  .row { display:flex; gap:8px; margin-top:10px }
+  input { flex:1; min-width:0; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--bg); color:var(--fg); font:inherit }
+  button, .btn { padding:10px 16px; border:0; border-radius:10px; background:var(--accent); color:#fff; font:600 14px inherit; font-family:inherit; cursor:pointer; text-decoration:none; display:inline-block }
+  button.secondary { background:transparent; color:var(--accent); border:1px solid var(--accent) }
+  button:disabled { opacity:.5; cursor:default }
+  .msg { margin-top:8px; font-size:14px } .msg.ok { color:var(--ok) } .msg.bad { color:var(--bad) }
+  .already { color:var(--ok); font-size:14px } code { font-size:.92em; background:var(--line); padding:1px 5px; border-radius:5px }
+  #finish { width:100%; padding:14px; font-size:16px; margin-top:8px }
+  .gh form { display:inline } .done-all { text-align:center; padding:40px 0 } .done-all h1 { font-size:30px }
+</style></head>
+<body><main id="app">
+<h1>Set up your agent</h1>
+<p class="lead">Five steps, about 15 minutes. Each one is checked as you go.</p>
+
+<section class="step" id="s-claude"><h2><span class="num"><span>1</span></span>Claude login</h2>
+  <p class="already" hidden>Already set. Paste a new token below only to replace it.</p>
+  <ol><li>In the terminal on your server (or any computer with Claude Code), run <code>claude setup-token</code>.</li>
+      <li>Open the link it shows, log in with your Claude account (Pro or Max), and paste the code back there.</li>
+      <li>It prints a token starting with <code>sk-ant-oat</code>. Paste it here.</li></ol>
+  <div class="row"><input id="claude" placeholder="sk-ant-oat01-…" autocomplete="off"><button data-check="claude">Check</button></div>
+  <div class="msg"></div></section>
+
+<section class="step" id="s-telegram"><h2><span class="num"><span>2</span></span>Telegram</h2>
+  <p class="already" hidden>Already set. Paste a new bot token below only to replace it.</p>
+  <p>On Telegram, open <a href="https://t.me/BotFather" target="_blank">@BotFather</a>, send <code>/newbot</code>, and pick a name and a username. It replies with a token.</p>
+  <div class="row"><input id="telegram" placeholder="123456789:ABC…" autocomplete="off"><button data-check="telegram">Check</button></div>
+  <div class="msg"></div>
+  <div id="chat-step" hidden><p>Now open <b id="bot"></b> on Telegram and send it any message, like “hi”. Then press:</p>
+    <button class="secondary" data-check="chat">I sent it</button><div class="msg" id="chat-msg"></div></div></section>
+
+<section class="step" id="s-tz"><h2><span class="num"><span>3</span></span>Your timezone</h2>
+  <p>For reminders like “at 6pm”. We guessed it from your browser.</p>
+  <div class="row"><input id="tz" autocomplete="off"><button data-check="tz">Save</button></div>
+  <div class="msg"></div></section>
+
+<section class="step" id="s-tailscale"><h2><span class="num"><span>4</span></span>Private access (Tailscale)</h2>
+  <p class="already" hidden>Already set. Paste a new key below only to replace it.</p>
+  <p>Your agent's pages open only on your own devices, through Tailscale.</p>
+  <ol><li>Sign up at <a href="https://tailscale.com" target="_blank">tailscale.com</a>, and install Tailscale on your phone and laptop.</li>
+      <li>On the <a href="https://login.tailscale.com/admin/dns" target="_blank">DNS page</a>, turn on <b>MagicDNS</b> and <b>HTTPS Certificates</b>.</li>
+      <li>On the <a href="https://login.tailscale.com/admin/settings/keys" target="_blank">Keys page</a>, click <b>Generate auth key</b> (the defaults are fine) and paste it here.</li></ol>
+  <div class="row"><input id="tailscale" placeholder="tskey-auth-…" autocomplete="off"><button data-check="tailscale">Check</button></div>
+  <div class="msg"></div></section>
+
+<section class="step gh" id="s-github"><h2><span class="num"><span>5</span></span>GitHub backups <small style="color:var(--muted);font-weight:400">(optional)</small></h2>
+  <p class="already" hidden>Connected.</p>
+  <div id="gh-todo"><ol>
+    <li>Create two empty private repos (no README):
+      <a href="https://github.com/new?name=agent-workspace&visibility=private" target="_blank">agent-workspace</a> for the agent's files, and
+      <a href="https://github.com/new?name=agent-history&visibility=private" target="_blank">agent-history</a> for your conversations.</li>
+    <li>Create a private GitHub App for your agent. When GitHub asks which repos it may use, pick <b>Only select repositories</b> and those two.</li></ol>
+  <!--APP_FORM--></div></section>
+
+<button id="finish" disabled>Finish and start my agent</button>
+<p class="msg" style="text-align:center;color:var(--muted)">Steps 1 to 4 are needed. You can come back for GitHub later.</p>
+</main>
+<script>
+const state = /*STATE*/{};
+const done = {claude: state.claude, telegram: state.telegram, chat: state.telegram, tz: false, tailscale: state.tailscale};
+
+function mark() {
+  for (const [id, ok] of Object.entries({claude: done.claude, telegram: done.telegram && done.chat, tz: done.tz,
+                                         tailscale: done.tailscale, github: state.github}))
+    document.getElementById("s-" + id).classList.toggle("done", !!ok);
+  document.getElementById("finish").disabled = !(done.claude && done.telegram && done.chat && done.tz && done.tailscale);
+}
+for (const id of ["claude", "telegram", "tailscale", "github"])
+  if (state[id]) document.querySelector(`#s-${id} .already`).hidden = false;
+if (state.github) document.getElementById("gh-todo").hidden = true;
+document.getElementById("tz").value = state.tz || Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+const messages = {
+  claude: ["Checking with Claude… (a few seconds)", "✓ Your Claude login works.", "✗ That token doesn't work. Copy the whole line starting with sk-ant-oat."],
+  telegram: ["Checking…", "✓ Your bot is ready.", "✗ Telegram doesn't know that token. Copy it again from BotFather."],
+  chat: ["Waiting for your message… (up to a minute)", "✓ Found you. Only you can talk to your agent.", "✗ No message came. Send your bot a message, then press again."],
+  tz: ["Checking…", "✓ Saved.", "✗ Unknown timezone. Use a name like Europe/Berlin."],
+  tailscale: ["Checking…", "✓ Looks right.", "✗ That's not an auth key. It starts with tskey-auth-."],
+};
+document.querySelectorAll("[data-check]").forEach(button => button.onclick = async () => {
+  const kind = button.dataset.check, input = document.getElementById(kind);
+  const msg = kind === "chat" ? document.getElementById("chat-msg") : button.closest(".step").querySelector(".msg");
+  msg.className = "msg"; msg.textContent = messages[kind][0]; button.disabled = true;
+  try {
+    const response = await fetch("/check/" + kind, {method: "POST", headers: {"Content-Type": "application/json"},
+                                                    body: JSON.stringify({value: input ? input.value : ""})});
+    const answer = await response.json();
+    done[kind] = answer.ok;
+    msg.className = "msg " + (answer.ok ? "ok" : "bad");
+    msg.textContent = messages[kind][answer.ok ? 1 : 2] + (answer.bot ? " It's " + answer.bot + "." : "");
+    if (kind === "telegram" && answer.ok) {
+      done.chat = false;
+      document.getElementById("bot").textContent = answer.bot;
+      document.getElementById("chat-step").hidden = false;
+    }
+  } catch (error) { msg.className = "msg bad"; msg.textContent = "✗ Couldn't reach setup. Is it still running?"; }
+  button.disabled = false; mark();
+});
+document.getElementById("finish").onclick = async () => {
+  await fetch("/finish", {method: "POST", headers: {"Content-Type": "application/json"}, body: "{}"});
+  document.getElementById("app").innerHTML = `<div class="done-all"><h1>All set 🎉</h1>
+    <p>Your agent is starting. Watch the terminal: it prints your private links in a minute.<br>
+    Then say hi to your bot on Telegram.</p></div>`;
+};
+mark();
+</script></body></html>

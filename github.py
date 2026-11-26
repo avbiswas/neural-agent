@@ -4,11 +4,10 @@ The app's private key stays with the harness (data/, which the agent never
 sees); when the harness needs GitHub, it mints a token that lasts one hour and
 reaches only the repos and permissions it asks for.
 
-One-time setup: create the app, then install it on your repos.
+One-time setup: create the app, then install it on your repos. ./setup does
+this step for you (see setup.py); on its own:
 
-    docker compose run --rm --service-ports github-setup
-    # then open http://localhost:8090
-    # (on a server, tunnel the port first: ssh -L 8090:localhost:8090 you@server)
+    uv run github.py          # then open http://localhost:8090/github
 """
 import html
 import http.server
@@ -52,6 +51,8 @@ def save_app(app):
     APP_FILE.parent.mkdir(parents=True, exist_ok=True)
     APP_FILE.write_text(json.dumps(app, indent=2))
     APP_FILE.chmod(0o600)
+    if os.getuid() == 0:  # written by ./setup (root): hand it to the harness's user
+        os.chown(APP_FILE, 1000, 1000)
 
 
 def token(app, repos=None, permissions=None):
@@ -111,24 +112,27 @@ MANIFEST = {
     "default_permissions": {"contents": "write", "metadata": "read"},
     "hook_attributes": {"url": "https://example.com/", "active": False},  # no webhooks
 }
+# The button that starts it: a form that posts the manifest to GitHub.
+APP_FORM = f"""<form method="post" action="https://github.com/settings/apps/new?state={STATE}">
+<input type="hidden" name="manifest" value="{html.escape(json.dumps(MANIFEST))}">
+<button>Create GitHub App</button></form>"""
+NEW_REPO = "https://github.com/new?name={}&visibility=private"  # GitHub's form, filled in
 SETUP_PAGE = f"""<!doctype html><title>Connect GitHub</title>
 <body style="font: 16px system-ui; max-width: 36em; margin: 4em auto">
 <h1>Connect your agent to GitHub</h1>
-<p>First create two empty private repos: <b>agent-workspace</b> (the agent's
-files: memory, sites, skills) and <b>agent-history</b> (your conversations;
-the name must end in <code>-history</code> or <code>-chats</code>). This page then creates a private
-GitHub App for your agent, and GitHub asks which repos it may use: pick those
-two.</p>
-<form method="post" action="https://github.com/settings/apps/new?state={STATE}">
-<input type="hidden" name="manifest" value="{html.escape(json.dumps(MANIFEST))}">
-<button style="font-size: 1.1em">Create GitHub App</button></form>"""
+<p>1. Create two empty private repos (don't add a README):
+<a href="{NEW_REPO.format('agent-workspace')}" target="_blank">agent-workspace</a> for the agent's
+files, and <a href="{NEW_REPO.format('agent-history')}" target="_blank">agent-history</a> for your
+conversations (any name ending in <code>-history</code> or <code>-chats</code>).</p>
+<p>2. Create a private GitHub App for your agent. GitHub then asks which repos
+it may use: pick <b>Only select repositories</b> and those two.</p>{APP_FORM}"""
 
 
 class Setup(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         url = urllib.parse.urlparse(self.path)
         query = dict(urllib.parse.parse_qsl(url.query))
-        if url.path == "/":
+        if url.path == "/github":
             self.reply(200, SETUP_PAGE)
         elif url.path == "/created" and query.get("state") == STATE:
             app = api("POST", f"/app-manifests/{query['code']}/conversions")
@@ -144,6 +148,11 @@ class Setup(http.server.BaseHTTPRequestHandler):
             app["backup_repo"] = workspace
             save_app(app)
             print(f"github: installed. Workspace -> {workspace}, chat log -> {history}. Done.")
+            if getattr(self.server, "wizard", False):  # part of ./setup --web: back to its page
+                self.send_response(302)
+                self.send_header("Location", "/#github")
+                self.end_headers()
+                return
             self.reply(200, f"<h1>Done.</h1><p>Workspace backs up to <b>{workspace or '(none picked)'}</b>, "
                             f"conversations to <b>{history or '(no repo ending in -history or -chats)'}</b>. "
                             "You can close this tab.</p>")
@@ -158,7 +167,12 @@ class Setup(http.server.BaseHTTPRequestHandler):
         self.wfile.write(page.encode())
 
 
-if __name__ == "__main__":
+def serve():
+    """Run the setup page until the app is installed."""
     host = os.environ.get("SETUP_HOST", "127.0.0.1")  # 0.0.0.0 inside Docker
-    print(f"github: open {SETUP_URL} in your browser")
     http.server.HTTPServer((host, PORT), Setup).serve_forever()
+
+
+if __name__ == "__main__":
+    print(f"github: open {SETUP_URL}/github in your browser")
+    serve()

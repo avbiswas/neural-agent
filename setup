@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Set up your agent and start it. All you need is Docker.
+#
+#   ./setup          answer a few questions here in the terminal
+#   ./setup --web    the same, as a page at http://localhost:8090
+#
+# Run it again any time to change something.
+set -euo pipefail
+cd "$(dirname "$0")"
+
+if ! docker info >/dev/null 2>&1; then
+  echo "Docker isn't running. On a Mac, open Docker Desktop. On a server, install it with:"
+  echo "  curl -fsSL https://get.docker.com | sh"
+  exit 1
+fi
+
+# Your computer's timezone, as the suggested answer.
+HOST_TZ=$(readlink /etc/localtime 2>/dev/null | sed 's#.*/zoneinfo/##' || true)
+[ -n "$HOST_TZ" ] || HOST_TZ=$(cat /etc/timezone 2>/dev/null || echo UTC)
+
+echo "Building your agent (the first time takes a few minutes)..."
+docker compose build --quiet
+docker compose stop telegram >/dev/null 2>&1 || true  # setup reads your first Telegram message itself
+
+docker compose run --rm --service-ports -e HOST_TZ="$HOST_TZ" setup "$@"
+
+docker compose up -d
+echo "Waiting for your private address on Tailscale..."
+name=""
+for _ in $(seq 1 45); do
+  name=$(docker compose exec -T tailscale tailscale status --json 2>/dev/null \
+         | grep -m1 '"DNSName"' | sed 's/.*"DNSName": *"\([^"]*\)\.".*/\1/' || true)
+  [ -n "$name" ] && break
+  sleep 2
+done
+if [ -z "$name" ]; then
+  echo "Tailscale didn't come up. See why with: docker compose logs tailscale"
+  exit 1
+fi
+docker compose run --rm -T setup --urls "https://$name" >/dev/null
+docker compose up -d >/dev/null 2>&1   # so the agent knows its addresses
+
+cat <<DONE
+
+✓ Your agent is running.
+
+  Chat:              your Telegram bot (say hi!)
+  Your pages:        https://$name
+  Secrets:           https://$name:8443
+  (both open only on devices signed in to your Tailscale)
+
+  Logs:   docker compose logs -f worker
+  Stop:   docker compose down        Start again:  docker compose up -d
+DONE
