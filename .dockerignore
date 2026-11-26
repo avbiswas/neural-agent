@@ -1,0 +1,14 @@
+# Secrets and instance state never go into the image.
+.env
+.envrc
+secrets/
+data/
+# The workspace is mounted at runtime; only its committed files are baked in.
+agent/memory/
+agent/sites/
+.venv/
+.git/
+.jj/
+planner/
+DESIGN.md
+**/__pycache__/

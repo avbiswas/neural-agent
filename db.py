@@ -46,6 +46,14 @@ def next_run(cron):
     return croniter(cron, local_now).get_next(datetime).astimezone(timezone.utc).strftime(DB_TIME)
 
 
+def last_channel(db):
+    """Where the person last talked to us ('cli', 'telegram'): replies the
+    agent starts itself (send_message, timers) go there."""
+    row = db.execute("""SELECT source FROM events WHERE source IN ('cli', 'telegram')
+                        ORDER BY id DESC LIMIT 1""").fetchone()
+    return row["source"] if row else "cli"
+
+
 def connect():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(DB_PATH, isolation_level=None)  # autocommit

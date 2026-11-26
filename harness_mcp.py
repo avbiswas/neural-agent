@@ -1,5 +1,6 @@
 """The harness's MCP server: tools that let the agent act on the harness itself.
-Claude Code starts it for each run (see --mcp-config in agent.py).
+A service of its own: the agent reaches it over HTTP (see mcp_config in
+agent.py), and only this side touches the database.
 
     send_message                            talk to the person mid-turn
     set_followup / create_schedule           wake yourself up later, once or repeatedly
@@ -11,10 +12,9 @@ from datetime import datetime, timedelta, timezone
 from croniter import croniter
 from mcp.server.mcpserver import MCPServer
 
-from db import DB_TIME, connect, next_run
+from db import DB_TIME, connect, last_channel, next_run
 
 server = MCPServer("harness")
-CHANNEL = os.environ["HARNESS_CHANNEL"]  # where this run's messages go, set by agent.py
 MAX_SCHEDULES = 10                       # so a confused agent can't flood its own inbox
 
 
@@ -29,7 +29,8 @@ def send_message(text: str) -> str:
     """Send the person a chat message right now, in the middle of your turn.
     Your final message is delivered anyway, so don't use this to repeat it.
     Use it sparingly: e.g. a short heads-up before a task that will take a while."""
-    connect().execute("INSERT INTO outbox (channel, text) VALUES (?, ?)", (CHANNEL, text))
+    db = connect()
+    db.execute("INSERT INTO outbox (channel, text) VALUES (?, ?)", (last_channel(db), text))
     return "sent"
 
 
@@ -87,4 +88,5 @@ def cancel_timer(timer_id: int) -> str:
 
 
 if __name__ == "__main__":
-    server.run()  # speaks MCP over stdin/stdout
+    # 0.0.0.0 in Docker, so the runner container can reach it (never published to the host).
+    server.run("streamable-http", host=os.environ.get("MCP_HOST", "127.0.0.1"), port=8001)

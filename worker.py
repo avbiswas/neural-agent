@@ -36,14 +36,6 @@ def pick_session():
     return None, f"new (idle {idle} min)"
 
 
-def last_channel():
-    """Where the person last talked to us. A timer run has no chat of its
-    own, so its send_message goes there."""
-    row = db.execute(f"""SELECT source FROM events WHERE source IN ({marks})
-                         ORDER BY id DESC LIMIT 1""", USER_SOURCES).fetchone()
-    return row["source"] if row else "cli"
-
-
 def reply_to(events, text):
     """Mark events done and put the reply in the outbox, addressed to the channel
     the message came from. Channel processes (console.py, telegram.py) deliver it."""
@@ -126,13 +118,11 @@ while True:
     # prompt was written to stand on its own, and it shouldn't derail the chat.
     if event["source"] in USER_SOURCES:
         session_id, why = pick_session()
-        channel = event["source"]
     else:
         session_id, why = None, "new (timer runs get their own session)"
-        channel = last_channel()
     print(f"        session: {why}")
     try:
-        result = run_agent(prompt, session_id, more_messages, channel=channel)
+        result = run_agent(prompt, session_id, more_messages)
     except Exception as error:
         db.executemany("UPDATE events SET status = 'failed', reply = ? WHERE id = ?",
                        [(str(error), e["id"]) for e in events])

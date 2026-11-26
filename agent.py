@@ -4,7 +4,7 @@ run_agent(): run a prompt, optionally resume a session, return text + session id
 import json
 import os
 import queue
-import subprocess
+import socket
 import sys
 import threading
 import time
@@ -14,6 +14,11 @@ ROOT = Path(__file__).parent
 AGENT_HOME = ROOT / "data" / "agent-home"   # the agent's own $HOME (and ~/.claude)
 WORKSPACE = ROOT / "agent"                  # where the agent works
 MEMORY = WORKSPACE / "memory"               # its memory across sessions (see agent/CLAUDE.md)
+
+# The agent runs in its own container (runner.py); the harness reaches it over
+# a socket. Our MCP server is a separate service the agent calls over HTTP.
+RUNNER = os.environ.get("RUNNER", "127.0.0.1:9000")
+MCP_URL = os.environ.get("MCP_URL", "http://127.0.0.1:8001/mcp")
 
 # Only the built-in tools the agent needs. Leaving out Claude Code's own
 # scheduling/notification tools (CronCreate, ScheduleWakeup, PushNotification...)
@@ -75,6 +80,7 @@ def agent_env():
         "LANG": os.environ.get("LANG", "en_US.UTF-8"),
         "TERM": os.environ.get("TERM", "xterm-256color"),
         "TMPDIR": os.environ.get("TMPDIR", "/tmp"),
+        "TZ": os.environ.get("TZ", "UTC"),          # the person's timezone, for "at 6pm"
         "CLAUDE_CODE_OAUTH_TOKEN": token,          # subscription login via `claude setup-token`
         "DISABLE_AUTOUPDATER": "1",                # don't install updates into the agent's home
         "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",    # memory is ours to build, not Claude Code's
@@ -83,14 +89,10 @@ def agent_env():
     }
 
 
-def mcp_config(channel):
-    """Our MCP server (harness_mcp.py), started by Claude Code for this run.
+def mcp_config():
+    """Our MCP server (harness_mcp.py), a separate service reached over HTTP.
     Its tools show up to the agent as mcp__harness__<tool>."""
-    return {"mcpServers": {"harness": {
-        "command": sys.executable,  # this project's Python, which has the mcp package
-        "args": [str(ROOT / "harness_mcp.py")],
-        "env": {"HARNESS_CHANNEL": channel},
-    }}}
+    return {"mcpServers": {"harness": {"type": "http", "url": MCP_URL}}}
 
 
 def trust_workspace():
@@ -99,19 +101,14 @@ def trust_workspace():
     record that answer for it directly."""
     path = AGENT_HOME / ".claude.json"
     data = json.loads(path.read_text()) if path.exists() else {}
-    project = data.setdefault("projects", {}).setdefault(str(ROOT), {})
+    project = data.setdefault("projects", {}).setdefault(str(WORKSPACE), {})
     if not project.get("hasTrustDialogAccepted"):
         project["hasTrustDialogAccepted"] = True
         path.write_text(json.dumps(data, indent=2))
 
 
-def run_agent(prompt, session_id=None, more_messages=lambda: [], channel="cli"):
-    """Run one turn. session_id=None starts a new session, otherwise resumes it.
-    channel is where the agent's send_message tool delivers ('cli', 'telegram').
-
-    Steering: while the turn runs we call more_messages() about once a second.
-    Any texts it returns are written to the running process, and Claude reads
-    them at its next step, so the user can redirect a turn that's in progress."""
+def prepare_home():
+    """Runs in the runner before each turn: the agent's home and memory files."""
     AGENT_HOME.mkdir(parents=True, exist_ok=True)
     WORKSPACE.mkdir(exist_ok=True)
     trust_workspace()
@@ -121,44 +118,55 @@ def run_agent(prompt, session_id=None, more_messages=lambda: [], channel="cli"):
         if not (MEMORY / name).exists():
             (MEMORY / name).write_text(heading + "\n")
 
+
+def run_agent(prompt, session_id=None, more_messages=lambda: []):
+    """Run one turn. session_id=None starts a new session, otherwise resumes it.
+
+    Steering: while the turn runs we call more_messages() about once a second.
+    Any texts it returns are written to the running process, and Claude reads
+    them at its next step, so the user can redirect a turn that's in progress."""
     # stream-json in both directions: user messages go in on stdin as JSON
     # lines, and events come out on stdout as JSON lines. The process lives
     # until we close stdin.
-    command = ["claude", "-p", "--input-format", "stream-json",
+    command = ["-p", "--input-format", "stream-json",
                "--output-format", "stream-json", "--verbose",
                "--model", "sonnet", "--tools", TOOLS,
                "--append-system-prompt", APPEND_SYSTEM_PROMPT,
-               "--mcp-config", json.dumps(mcp_config(channel))]
+               "--mcp-config", json.dumps(mcp_config())]
     # What the agent may do without asking lives in agent/.claude/settings.json.
     if session_id:
         command += ["--resume", session_id]
-    proc = subprocess.Popen(command, cwd=WORKSPACE, env=agent_env(), text=True,
-                            stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    # Claude runs in the runner container. We send it the arguments, and from
+    # then on the socket is claude's stdin (to it) and stdout (from it).
+    host, port = RUNNER.split(":")
+    sock = socket.create_connection((host, int(port)))
+    stdin, stdout = sock.makefile("w"), sock.makefile("r")
+    stdin.write(json.dumps(command) + "\n")
 
     def send(text):
-        proc.stdin.write(json.dumps({"type": "user",
-                                     "message": {"role": "user", "content": text}}) + "\n")
-        proc.stdin.flush()
+        stdin.write(json.dumps({"type": "user",
+                                "message": {"role": "user", "content": text}}) + "\n")
+        stdin.flush()
 
     # A background thread reads stdout, so the loop below can also check for
     # new messages while Claude is busy.
     lines = queue.Queue()
     def read_stdout():
-        for line in iter(proc.stdout.readline, ""):
+        for line in iter(stdout.readline, ""):
             lines.put(line)
         lines.put(None)  # process exited
     threading.Thread(target=read_stdout, daemon=True).start()
 
     send(prompt)
-    results, last_check, deadline = [], 0, time.time() + 600
+    results, last_check, deadline, stdin_open = [], 0, time.time() + 600, True
     context_tokens = 0  # size of the conversation at the latest model call
     while True:
-        if not proc.stdin.closed and time.time() - last_check >= 1:
+        if stdin_open and time.time() - last_check >= 1:
             for text in more_messages():
                 send(text)
             last_check = time.time()
         if time.time() > deadline:
-            proc.kill()
+            sock.close()  # the runner kills claude when we hang up
             raise RuntimeError("agent timed out")
         try:
             line = lines.get(timeout=0.2)
@@ -175,10 +183,11 @@ def run_agent(prompt, session_id=None, more_messages=lambda: [], channel="cli"):
             results.append(event)
             # The turn is over: closing stdin tells claude to exit. (A message
             # that slipped in just before this still gets its own result.)
-            if not proc.stdin.closed:
-                proc.stdin.close()
+            if stdin_open:
+                sock.shutdown(socket.SHUT_WR)  # = closing claude's stdin
+                stdin_open = False
 
-    proc.wait()
+    sock.close()
     if not results:
         raise RuntimeError("agent exited without a result")
     if results[-1].get("is_error"):

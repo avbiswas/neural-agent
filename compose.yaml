@@ -1,0 +1,79 @@
+# The whole agent: `docker compose up -d --build`, on your laptop or a server.
+#
+# Secrets come from .env next to this file (KEY=value lines) or your shell, and
+# each service gets only the ones it needs. Only `sites` publishes a port, and
+# only on 127.0.0.1: put Tailscale Serve in front of it, never the internet.
+
+x-harness: &harness           # settings shared by the harness services
+  build: .
+  image: neural-agent
+  restart: unless-stopped
+  environment: &harness-env
+    TZ: ${TZ:-UTC}
+  volumes:
+    - harness-data:/app/data  # harness.db and friends. The runner never sees it.
+
+services:
+  # The agent. It gets the workspace and its own home, the Claude login, and
+  # nothing else: no database, no Telegram token.
+  runner:
+    image: neural-agent
+    restart: unless-stopped
+    command: python runner.py
+    environment:
+      RUNNER_HOST: 0.0.0.0
+      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
+      SITES_URL: ${SITES_URL:-http://127.0.0.1:8080}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ./agent:/app/agent
+      - agent-home:/app/data/agent-home
+
+  worker:
+    <<: *harness
+    command: python worker.py
+    environment:
+      <<: *harness-env
+      RUNNER: runner:9000
+      MCP_URL: http://mcp:8001/mcp
+    volumes:
+      - harness-data:/app/data
+      - ./agent:/app/agent    # to read memory sizes after a dream
+
+  mcp:
+    <<: *harness
+    command: python harness_mcp.py
+    environment:
+      <<: *harness-env
+      MCP_HOST: 0.0.0.0
+
+  scheduler:
+    <<: *harness
+    command: python scheduler.py
+
+  telegram:
+    <<: *harness
+    command: python telegram.py
+    environment:
+      <<: *harness-env
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+
+  console:
+    <<: *harness
+    command: python console.py
+
+  sites:
+    image: neural-agent
+    restart: unless-stopped
+    command: python sites.py
+    environment:
+      SITES_HOST: 0.0.0.0
+    ports:
+      - 127.0.0.1:8080:8080
+    volumes:
+      - ./agent/sites:/app/agent/sites:ro
+
+volumes:
+  harness-data:
+  agent-home:

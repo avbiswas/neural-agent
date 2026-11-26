@@ -7,6 +7,7 @@
 """
 import json
 import os
+import sys
 import threading
 import time
 import urllib.request
@@ -15,6 +16,8 @@ from agent import read_env_file
 from db import DB_PATH, connect
 
 config = {**read_env_file(".env", ".envrc"), **os.environ}
+if not config.get("TELEGRAM_BOT_TOKEN"):
+    sys.exit("telegram: no TELEGRAM_BOT_TOKEN. Get one from @BotFather and put it in .env")
 API = f"https://api.telegram.org/bot{config['TELEGRAM_BOT_TOKEN']}"
 # Only this chat may talk to the agent. Anyone can find a bot, so this matters.
 CHAT_ID = int(config["TELEGRAM_CHAT_ID"]) if config.get("TELEGRAM_CHAT_ID") else None
