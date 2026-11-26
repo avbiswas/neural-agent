@@ -7,4 +7,5 @@ requires-python = ">=3.12"
 dependencies = [
     "croniter>=7.0.0",
     "mcp>=2.3.0",
+    "pyjwt[crypto]>=2.15.1",
 ]

@@ -7,7 +7,18 @@
       "WebFetch",
       "mcp__harness",
       "Bash(python3 .claude/skills/sites/list_sites.py)",
-      "Bash(python3 .claude/skills/dreaming/transcripts.py:*)"
+      "Bash(python3 .claude/skills/dreaming/transcripts.py:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ],
+    "deny": [
+      "Bash(git reset:*)",
+      "Bash(git rebase:*)",
+      "Bash(git commit --amend:*)"
     ]
   }
 }

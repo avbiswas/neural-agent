@@ -2,6 +2,7 @@ import time
 
 from db import connect
 from agent import run_agent
+from commit import commit
 from dream import dream
 
 db = connect()
@@ -16,7 +17,7 @@ IDLE_LIMIT_MINUTES = 60   # the prompt cache lives ~1h, so resuming within it is
 
 # User messages that may join the current run (batching or steering): pending,
 # from a person, and not past a pending /new, which must split the conversation.
-JOINABLE = f"""status = 'pending' AND source IN ({marks}) AND trim(text) NOT IN ('/new', '/dream')
+JOINABLE = f"""status = 'pending' AND source IN ({marks}) AND trim(text) NOT IN ('/new', '/dream', '/commit')
     AND id < (SELECT coalesce(min(id), 1e18) FROM events
               WHERE status = 'pending' AND trim(text) = '/new')"""
 
@@ -84,6 +85,20 @@ while True:
             continue
         reply_to([event], result["text"])
         print(f"worker: #{event['id']} dream done      {result['text']!r}  cost=${result['cost_usd']:.4f}")
+        continue
+
+    # /commit: if agent/ changed, a fresh agent reviews and commits; then we
+    # push the history to GitHub (see commit.py).
+    if event["text"].strip() == "/commit":
+        try:
+            result, backup = commit()
+        except Exception as error:
+            db.execute("UPDATE events SET status = 'failed', reply = ? WHERE id = ?", (str(error), event["id"]))
+            print(f"worker: #{event['id']} commit failed    {error}")
+            continue
+        text = result["text"] if result else "Nothing to commit."
+        reply_to([event], f"{text}\nBackup: {backup}")
+        print(f"worker: #{event['id']} /commit -> {text!r}  backup: {backup}")
         continue
 
     # Batching: if it's a user message, also claim every other pending user

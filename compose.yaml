@@ -28,6 +28,7 @@ services:
     volumes:
       - ./agent:/app/agent
       - agent-home:/app/data/agent-home
+      - workspace-git:/app/data/workspace.git     # the workspace's git history
 
   worker:
     <<: *harness
@@ -37,8 +38,9 @@ services:
       RUNNER: runner:9000
       MCP_URL: http://mcp:8001/mcp
     volumes:
-      - harness-data:/app/data
+      - harness-data:/app/data  # also holds the GitHub app's key (data/github-app.json)
       - ./agent:/app/agent    # to read memory sizes after a dream
+      - workspace-git:/app/data/workspace.git:ro  # to commit-check and back up the history
 
   mcp:
     <<: *harness
@@ -74,6 +76,20 @@ services:
     volumes:
       - ./agent/sites:/app/agent/sites:ro
 
+  # One-time: connect GitHub (see github.py). Not started by `up`.
+  #   docker compose run --rm --service-ports github-setup
+  github-setup:
+    <<: *harness
+    profiles: [setup]
+    restart: "no"
+    command: python github.py
+    environment:
+      <<: *harness-env
+      SETUP_HOST: 0.0.0.0
+    ports:
+      - 127.0.0.1:8090:8090
+
 volumes:
   harness-data:
   agent-home:
+  workspace-git:

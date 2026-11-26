@@ -9,11 +9,12 @@ from db import connect, next_run
 
 db = connect()
 
-# The nightly dream (see dream.py) is a schedule like any other, owned by the harness.
-NIGHTLY_DREAM = "0 3 * * *"
-if not db.execute("SELECT 1 FROM timers WHERE prompt = '/dream' AND status = 'pending'").fetchone():
-    db.execute("INSERT INTO timers (prompt, due_at, cron) VALUES ('/dream', ?, ?)",
-               (next_run(NIGHTLY_DREAM), NIGHTLY_DREAM))
+# The harness's own schedules: the nightly dream (see dream.py) and the hourly
+# commit (see commit.py). Schedules like any other, just not set by the agent.
+for command, cron in [("/dream", "0 3 * * *"), ("/commit", "0 * * * *")]:
+    if not db.execute("SELECT 1 FROM timers WHERE prompt = ? AND status = 'pending'", (command,)).fetchone():
+        db.execute("INSERT INTO timers (prompt, due_at, cron) VALUES (?, ?, ?)",
+                   (command, next_run(cron), cron))
 print("scheduler: running")
 
 while True:

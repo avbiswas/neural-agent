@@ -11,7 +11,7 @@ RUN useradd --create-home --uid 1000 agent
 USER agent
 WORKDIR /app
 # Mount points for the volumes, created as `agent` so the volumes are writable by it.
-RUN mkdir -p data/agent-home agent/sites
+RUN mkdir -p data/agent-home data/workspace.git agent/sites
 
 # Claude Code, installed for that user (the runner is the only service that uses it).
 RUN curl -fsSL https://claude.ai/install.sh | bash

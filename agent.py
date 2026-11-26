@@ -5,6 +5,7 @@ import json
 import os
 import queue
 import socket
+import subprocess
 import sys
 import threading
 import time
@@ -14,6 +15,9 @@ ROOT = Path(__file__).parent
 AGENT_HOME = ROOT / "data" / "agent-home"   # the agent's own $HOME (and ~/.claude)
 WORKSPACE = ROOT / "agent"                  # where the agent works
 MEMORY = WORKSPACE / "memory"               # its memory across sessions (see agent/CLAUDE.md)
+# The workspace is a git repo, but its history lives here, outside agent/
+# (agent/ itself sits inside the tutorial's own repo). GIT_DIR points git at it.
+WORKSPACE_GIT = ROOT / "data" / "workspace.git"
 
 # The agent runs in its own container (runner.py); the harness reaches it over
 # a socket. Our MCP server is a separate service the agent calls over HTTP.
@@ -73,7 +77,7 @@ def agent_env():
     config = {**read_env_file(".env", ".envrc"), **os.environ}
     token = config.get("CLAUDE_CODE_OAUTH_TOKEN")
     if not token:
-        sys.exit("No CLAUDE_CODE_OAUTH_TOKEN. Run `claude setup-token` and put it in .env")
+        raise RuntimeError("No CLAUDE_CODE_OAUTH_TOKEN. Run `claude setup-token` and put it in .env")
     return {
         "PATH": os.environ["PATH"],
         "HOME": str(AGENT_HOME),
@@ -86,7 +90,27 @@ def agent_env():
         "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",    # memory is ours to build, not Claude Code's
         # Where the agent's sites are reachable (the sites skill prints links with it).
         "SITES_URL": config.get("SITES_URL", "http://127.0.0.1:8080"),
+        # Plain `git` in agent/ uses the workspace repo. (No GitHub login: the
+        # harness pushes the backup, see commit.py.)
+        "GIT_DIR": str(WORKSPACE_GIT),
+        "GIT_WORK_TREE": str(WORKSPACE),
     }
+
+
+def git(*args):
+    """Run git on the workspace repo (from the harness side, not as the agent)."""
+    env = {**os.environ, "GIT_DIR": str(WORKSPACE_GIT), "GIT_WORK_TREE": str(WORKSPACE)}
+    return subprocess.run(["git", *args], env=env, capture_output=True, text=True)
+
+
+def prepare_repo():
+    """Create the workspace repo the first time."""
+    if not (WORKSPACE_GIT / "HEAD").exists():
+        git("init", "-q", "-b", "main")
+        git("config", "user.name", "agent")
+        git("config", "user.email", "agent@localhost")
+        # Never commit things that look like secrets, whatever the agent writes.
+        (WORKSPACE_GIT / "info" / "exclude").write_text(".env*\n*.key\nsecrets/\n")
 
 
 def mcp_config():
@@ -112,6 +136,7 @@ def prepare_home():
     AGENT_HOME.mkdir(parents=True, exist_ok=True)
     WORKSPACE.mkdir(exist_ok=True)
     trust_workspace()
+    prepare_repo()
     # Start with empty memory files the first time; the agent fills them in.
     (MEMORY / "notes").mkdir(parents=True, exist_ok=True)
     for name, heading in [("instructions.md", "# Standing orders"), ("index.md", "# Memory index")]:

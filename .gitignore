@@ -19,3 +19,6 @@ data/
 agent/sites/
 # the agent's memory is instance data (agent/CLAUDE.md, which explains it, is committed)
 agent/memory/
+
+# macOS
+.DS_Store
