@@ -2,7 +2,7 @@
 # Set up your agent and start it. All you need is Docker.
 #
 #   ./setup          answer a few questions here in the terminal
-#   ./setup --web    the same, as a page at http://localhost:8090
+#   ./setup --web    the same, as a page in your browser
 #
 # Run it again any time to change something.
 set -euo pipefail
@@ -17,6 +17,24 @@ fi
 # Your computer's timezone, as the suggested answer.
 HOST_TZ=$(readlink /etc/localtime 2>/dev/null | sed 's#.*/zoneinfo/##' || true)
 [ -n "$HOST_TZ" ] || HOST_TZ=$(cat /etc/timezone 2>/dev/null || echo UTC)
+
+# A name of its own for this copy, so two people's agents can share a server:
+# Docker names containers and volumes after it. Kept in .env once chosen.
+if ! grep -q '^COMPOSE_PROJECT_NAME=' .env 2>/dev/null; then
+  base=$(basename "$PWD" | tr 'A-Z' 'a-z' | tr -cd 'a-z0-9_-'); name=$base; n=1
+  while true; do
+    owner=$(docker ps -a --filter "label=com.docker.compose.project=$name" \
+            --format '{{.Label "com.docker.compose.project.working_dir"}}' | head -1)
+    { [ -z "$owner" ] || [ "$owner" = "$PWD" ]; } && break
+    n=$((n + 1)); name="$base-$n"   # taken by another copy on this machine
+  done
+  echo "COMPOSE_PROJECT_NAME=$name" >> .env
+fi
+
+# A free port for setup's page (8090, or the next free one).
+SETUP_PORT=8090
+while (echo >"/dev/tcp/127.0.0.1/$SETUP_PORT") 2>/dev/null; do SETUP_PORT=$((SETUP_PORT + 1)); done
+export SETUP_PORT
 
 echo "Building your agent (the first time takes a few minutes)..."
 docker compose build --quiet

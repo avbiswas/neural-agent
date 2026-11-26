@@ -1,7 +1,7 @@
 """Set up your agent: a few questions, checked as you go, then .env is written.
 
     ./setup            the questions, here in the terminal
-    ./setup --web      the same, as a page: http://localhost:8090
+    ./setup --web      the same, as a page (./setup prints the link)
 
 `./setup` runs this inside Docker (so you need nothing else installed), then
 starts everything. Run it again any time to change something: what's already
@@ -23,6 +23,8 @@ PROJECT = Path("/project")       # the folder with compose.yaml, mounted in by .
 ENV = PROJECT / ".env"
 TAILSCALE_DNS = "https://login.tailscale.com/admin/dns"
 TAILSCALE_KEYS = "https://login.tailscale.com/admin/settings/keys"
+BROWSER_PORT = os.environ.get("SETUP_PORT", "8090")  # ./setup picks a free one
+TUNNEL_HINT = f"(On a server: log in with  ssh -L {BROWSER_PORT}:localhost:{BROWSER_PORT} ...  so that link works.)"
 
 
 # --- .env --------------------------------------------------------------------
@@ -187,8 +189,7 @@ def cli():
     if github.load_app() and ask("GitHub is already connected. Keep it? (Y/n)", "y").lower().startswith("y"):
         pass
     elif ask("Back up your agent to GitHub? You can do it later. (Y/n)", "y").lower().startswith("y"):
-        print(f"Open {github.SETUP_URL}/github in your browser and follow the page.\n"
-              "(On a server: log in with  ssh -L 8090:localhost:8090 ...  so that link works.)")
+        print(f"Open {github.SETUP_URL}/github in your browser and follow the page.\n" + TUNNEL_HINT)
         github.serve()  # returns once the app is installed
         print("✓ GitHub connected.")
 
@@ -263,8 +264,7 @@ class Wizard(github.Setup):  # the GitHub app pages (/github, /created, /install
 def web():
     server = http.server.ThreadingHTTPServer((os.environ.get("SETUP_HOST", "127.0.0.1"), github.PORT), Wizard)
     server.wizard, server.done = True, False
-    print(f"Open {github.SETUP_URL} in your browser.\n"
-          "(On a server: log in with  ssh -L 8090:localhost:8090 ...  so that link works.)")
+    print(f"Open {github.SETUP_URL} in your browser.\n" + TUNNEL_HINT)
     while not server.done:
         server.handle_request()
     print("✓ Saved. Starting your agent...")

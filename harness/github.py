@@ -25,8 +25,8 @@ from pathlib import Path
 import jwt
 
 APP_FILE = Path(__file__).parents[1] / "data" / "github-app.json"  # the app's id and private key
-PORT = 8090
-SETUP_URL = f"http://localhost:{PORT}"
+PORT = 8090                                          # inside the container
+SETUP_URL = f"http://localhost:{os.environ.get('SETUP_PORT', PORT)}"  # in your browser
 
 
 def api(method, path, token=None, body=None):

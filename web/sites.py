@@ -1,11 +1,10 @@
-"""Serve the agent's sites (agent/sites/) on 127.0.0.1:8080, each with a chat
+"""Serve the agent's sites (agent/sites/) on port 8080, each with a chat
 button for talking to the agent about that page.
 
     uv run python -m web.sites
-    tailscale serve --bg 8080    # once, on the server: https://<server>.<tailnet>.ts.net/
 
-127.0.0.1 means nothing else on your network can reach it. Tailscale Serve
-forwards to it, so only devices on your tailnet can open the pages.
+In Docker the port isn't published: the `tailscale` service serves it at
+https://agent.<your-tailnet>.ts.net, so only your own devices can open it.
 
 Site chat: every HTML page gets a chat widget (we add it as we serve the
 page, so the agent doesn't have to). It's a conversation of its own, separate

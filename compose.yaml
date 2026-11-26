@@ -85,8 +85,6 @@ services:
       SITES_HOST: 0.0.0.0
       RUNNER: runner:9000   # site chats run in the runner, like everything the agent does
       TZ: ${TZ:-UTC}        # local times in the conversation log
-    ports:
-      - 127.0.0.1:8080:8080
     volumes:
       - ./agent/sites:/app/agent/sites:ro
       - chat-history:/app/agent/history           # site chats go in the conversation log
@@ -99,8 +97,6 @@ services:
     command: python -m web.secrets_page
     environment:
       SECRETS_HOST: 0.0.0.0
-    ports:
-      - 127.0.0.1:8081:8081
     volumes:
       - agent-secrets:/run/agent-secrets
 
@@ -131,8 +127,9 @@ services:
     environment:
       <<: *harness-env
       SETUP_HOST: 0.0.0.0
+      SETUP_PORT: ${SETUP_PORT:-8090}  # the port your browser uses (./setup picks a free one)
     ports:
-      - 127.0.0.1:8090:8090       # the web version, and the GitHub step
+      - 127.0.0.1:${SETUP_PORT:-8090}:8090   # the web version, and the GitHub step
     volumes:
       - harness-data:/app/data    # the GitHub app's key goes here
       - .:/project
