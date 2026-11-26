@@ -37,6 +37,26 @@ def pick_session():
     return None, f"new (idle {idle} min)"
 
 
+def recent_chat(before_id, pairs=3):
+    """The last few exchanges of the chat (since the last /new): what the person
+    said and what the agent answered, without any tool calls. A new session gets
+    them, so "and the second one?" still makes sense after a break."""
+    rows = db.execute(f"""
+        SELECT text, reply FROM events
+        WHERE source IN ({marks}) AND status = 'done' AND id < ?
+          AND trim(text) NOT IN ('/new', '/dream', '/commit')
+          AND id > (SELECT coalesce(max(id), 0) FROM events WHERE trim(text) = '/new')
+        ORDER BY id DESC LIMIT 10""", (*USER_SOURCES, before_id)).fetchall()
+    exchanges = []  # messages answered together (batching) share one reply
+    for row in reversed(rows):
+        if exchanges and exchanges[-1][1] == row["reply"]:
+            exchanges[-1][0].append(row["text"])
+        else:
+            exchanges.append(([row["text"]], row["reply"]))
+    return "\n\n".join(f"Person: {' / '.join(texts)}\nYou: {reply[:1500]}"
+                        for texts, reply in exchanges[-pairs:])
+
+
 def reply_to(events, text):
     """Mark events done and put the reply in the outbox, addressed to the channel
     the message came from. Channel processes (console.py, telegram.py) deliver it."""
@@ -133,6 +153,11 @@ while True:
     # prompt was written to stand on its own, and it shouldn't derail the chat.
     if event["source"] in USER_SOURCES:
         session_id, why = pick_session()
+        history = recent_chat(events[0]["id"]) if session_id is None else ""
+        if history:  # a fresh session, but not a fresh conversation
+            prompt = (f"[Earlier in this chat, for context. It's already answered.]\n\n{history}\n\n"
+                      f"[New message]\n\n{prompt}")
+            why += f", with the last {history.count('Person: ')} exchanges"
     else:
         session_id, why = None, "new (timer runs get their own session)"
     print(f"        session: {why}")
