@@ -1,6 +1,8 @@
 """The Telegram channel: the same job as console.py, over Telegram's Bot API.
 
     In:  long-poll getUpdates -> a row in `events` (source 'telegram')
+         Files (photos, documents, voice...) are saved in agent/uploads/, and
+         the event tells the agent where
     Out: pending 'telegram' rows in `outbox` -> sendMessage
     Approvals: a message with Approve / Deny buttons; a press updates `approvals`
 
@@ -10,10 +12,13 @@ import json
 import os
 import sys
 import threading
+import re
 import time
 import urllib.request
+from datetime import datetime
+from pathlib import Path
 
-from agent import read_env_file
+from agent import WORKSPACE, read_env_file
 from db import DB_PATH, connect
 
 config = {**read_env_file(".env", ".envrc"), **os.environ}
@@ -25,6 +30,8 @@ CHAT_ID = int(config["TELEGRAM_CHAT_ID"]) if config.get("TELEGRAM_CHAT_ID") else
 # Which updates we've already handled. Kept on disk: Telegram only forgets an
 # update once a later getUpdates call completes, so a restart would replay it.
 OFFSET_FILE = DB_PATH.parent / "telegram-offset"
+UPLOADS = WORKSPACE / "uploads"   # files you send, where the agent can read them
+MAX_DOWNLOAD = 20 * 1024 * 1024   # the most a bot may download from Telegram
 
 
 def call(method, http_timeout=10, **params):
@@ -34,6 +41,28 @@ def call(method, http_timeout=10, **params):
                                      headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(request, timeout=http_timeout) as response:
         return json.load(response)["result"]
+
+
+def save_file(message):
+    """Download the file in a message, if there is one, into uploads/<date>/.
+    Returns its path as the agent sees it (relative to its workspace), or an
+    error to tell the person, or None for a plain text message."""
+    kinds = ["document", "photo", "voice", "audio", "video", "video_note"]
+    kind = next((k for k in kinds if k in message), None)
+    if not kind:
+        return None, None
+    file = message[kind][-1] if kind == "photo" else message[kind]  # photos come in sizes: take the largest
+    if file.get("file_size", 0) > MAX_DOWNLOAD:
+        return None, "That file is over 20 MB, the most Telegram lets a bot download. Can you send a link instead?"
+    remote = call("getFile", file_id=file["file_id"])["file_path"]
+    name = file.get("file_name") or f"{kind}{Path(remote).suffix}"
+    name = re.sub(r"[^\w.-]", "_", name)  # nothing that could act as a path
+    path = UPLOADS / f"{datetime.now():%Y-%m-%d}" / f"{message['message_id']}-{name}"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    url = f"https://api.telegram.org/file/bot{config['TELEGRAM_BOT_TOKEN']}/{remote}"
+    with urllib.request.urlopen(url, timeout=60) as response:
+        path.write_bytes(response.read())
+    return path.relative_to(WORKSPACE), None
 
 
 def receive():
@@ -55,15 +84,27 @@ def receive():
                 answer(db, update["callback_query"])
                 continue
             message = update.get("message")
-            if not message or "text" not in message:
+            if not message:
                 continue
             chat_id = message["chat"]["id"]
             if chat_id != CHAT_ID:
                 print(f"telegram: ignored a message from chat {chat_id}. "
                       f"If that's you, add `export TELEGRAM_CHAT_ID={chat_id}` to .envrc")
                 continue
-            db.execute("INSERT INTO events (source, text) VALUES ('telegram', ?)", (message["text"],))
-            print(f"telegram: in  {message['text']!r}")
+            text = message.get("text") or message.get("caption") or ""
+            try:
+                path, problem = save_file(message)
+            except Exception as error:
+                path, problem = None, f"I couldn't download that file ({error}). Try sending it again?"
+            if problem:  # tell them right away, no need to wake the agent
+                db.execute("INSERT INTO outbox (channel, text) VALUES ('telegram', ?)", (problem,))
+                continue
+            if path:
+                text = f"[The person uploaded a file. It's saved at {path}]\n{text}".strip()
+            if not text:
+                continue  # a sticker, a location...: nothing we handle yet
+            db.execute("INSERT INTO events (source, text) VALUES ('telegram', ?)", (text,))
+            print(f"telegram: in  {text!r}")
             # 👀 = "got it". The reply comes later, through the outbox.
             call("setMessageReaction", chat_id=chat_id, message_id=message["message_id"],
                  reaction=[{"type": "emoji", "emoji": "👀"}])

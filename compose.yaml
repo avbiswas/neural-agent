@@ -68,6 +68,9 @@ services:
       <<: *harness-env
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+    volumes:
+      - harness-data:/app/data
+      - ./agent/uploads:/app/agent/uploads   # files you send go here, for the agent to read
 
   console:
     <<: *harness

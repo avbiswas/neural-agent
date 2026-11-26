@@ -21,6 +21,8 @@ agent/sites/
 agent/memory/
 # the conversation log is instance data too
 agent/history/
+# files you send the agent
+agent/uploads/
 
 # macOS
 .DS_Store

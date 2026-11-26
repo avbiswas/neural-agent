@@ -6,6 +6,7 @@ data/
 # The workspace is mounted at runtime; only its committed files are baked in.
 agent/memory/
 agent/history/
+agent/uploads/
 agent/sites/
 .venv/
 .git/
