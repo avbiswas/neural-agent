@@ -13,6 +13,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.request
 from pathlib import Path
@@ -248,7 +249,6 @@ class Wizard(github.Setup):  # the GitHub app pages (/github, /created, /install
             write_env(self.pending)
             prepare_folders()
             answer = {"ok": True}
-            self.server.done = True
         else:
             return self.send_error(404)
         data = json.dumps(answer).encode()
@@ -256,6 +256,8 @@ class Wizard(github.Setup):  # the GitHub app pages (/github, /created, /install
         self.send_header("Content-Type", "application/json")
         self.end_headers()
         self.wfile.write(data)
+        if self.path == "/finish":  # saved: stop the page so ./setup can start the agent
+            threading.Thread(target=self.server.shutdown).start()
 
     pending = {}  # checked values, written to .env on Finish
 
@@ -265,10 +267,9 @@ class Wizard(github.Setup):  # the GitHub app pages (/github, /created, /install
 
 def web():
     server = http.server.ThreadingHTTPServer((os.environ.get("SETUP_HOST", "127.0.0.1"), github.PORT), Wizard)
-    server.wizard, server.done = True, False
+    server.wizard = True
     print(f"Open {github.SETUP_URL} in your browser.\n" + TUNNEL_HINT)
-    while not server.done:
-        server.handle_request()
+    server.serve_forever()  # until Finish
     print("✓ Saved. Starting your agent...")
     return True
 

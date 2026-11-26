@@ -46,8 +46,9 @@ docker compose up -d
 echo "Waiting for your private address on Tailscale..."
 name=""
 for _ in $(seq 1 45); do
-  name=$(docker compose exec -T tailscale tailscale status --json 2>/dev/null \
-         | grep -m1 '"DNSName"' | sed 's/.*"DNSName": *"\([^"]*\)\.".*/\1/' || true)
+  # Only the agent's own entry, and only once its name is filled in.
+  name=$(docker compose exec -T tailscale tailscale status --json --peers=false 2>/dev/null \
+         | sed -n 's/.*"DNSName": *"\([^"][^"]*\)\.".*/\1/p' | head -n1 || true)
   [ -n "$name" ] && break
   sleep 2
 done
