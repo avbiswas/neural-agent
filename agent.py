@@ -159,9 +159,12 @@ def prepare_home():
             (MEMORY / name).write_text(heading + "\n")
 
 
-def run_agent(prompt, session_id=None, more_messages=lambda: [], model="sonnet"):
+def run_agent(prompt, session_id=None, more_messages=lambda: [], model="sonnet",
+              tools=TOOLS, system=APPEND_SYSTEM_PROMPT, harness=True, extra=(), on_event=None):
     """Run one turn on `model` ('sonnet' or 'opus'). session_id=None starts a
     new session, otherwise resumes it (keep one model per session).
+    For site chats (sites.py): harness=False leaves out our MCP tools and
+    approvals, extra adds CLI arguments, and on_event sees every event live.
 
     Steering: while the turn runs we call more_messages() about once a second.
     Any texts it returns are written to the running process, and Claude reads
@@ -171,15 +174,18 @@ def run_agent(prompt, session_id=None, more_messages=lambda: [], model="sonnet")
     # until we close stdin.
     command = ["-p", "--input-format", "stream-json",
                "--output-format", "stream-json", "--verbose",
-               "--model", model, "--tools", TOOLS,
-               "--append-system-prompt", APPEND_SYSTEM_PROMPT,
-               "--mcp-config", json.dumps(mcp_config()),
+               "--model", model, "--tools", tools,
+               "--append-system-prompt", system,
                # Auto mode: a classifier lets ordinary commands run and blocks
-               # risky ones. Writes to outside systems (the "ask" list in
-               # agent/.claude/settings.json) always go to the person, through
-               # our MCP server (approve in harness_mcp.py).
-               "--permission-mode", "auto",
-               "--permission-prompt-tool", "mcp__harness__approve"]
+               # risky ones.
+               "--permission-mode", "auto"]
+    if harness:
+        # Our MCP tools, and approvals: writes to outside systems (the "ask"
+        # list in agent/.claude/settings.json) always go to the person,
+        # through our MCP server (approve in harness_mcp.py).
+        command += ["--mcp-config", json.dumps(mcp_config()),
+                    "--permission-prompt-tool", "mcp__harness__approve"]
+    command += list(extra)
     if session_id:
         command += ["--resume", session_id]
     # Claude runs in the runner container. We send it the arguments, and from
@@ -222,6 +228,8 @@ def run_agent(prompt, session_id=None, more_messages=lambda: [], model="sonnet")
         if line is None:
             break
         event = json.loads(line)
+        if on_event:
+            on_event(event)
         if event["type"] == "assistant" and event["message"].get("usage"):
             u = event["message"]["usage"]
             context_tokens = (u["input_tokens"] + u.get("cache_creation_input_tokens", 0)
@@ -242,7 +250,7 @@ def run_agent(prompt, session_id=None, more_messages=lambda: [], model="sonnet")
         # The saved session is gone (deleted, or a different machine): start fresh.
         if session_id and "No conversation found" in error:
             print("agent: session not found, starting a new one")
-            return run_agent(prompt, None, more_messages, model)
+            return run_agent(prompt, None, more_messages, model, tools, system, harness, extra, on_event)
         raise RuntimeError(error)
     usage = [r["usage"] for r in results]
     return {

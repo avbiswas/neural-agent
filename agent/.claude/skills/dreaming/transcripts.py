@@ -13,7 +13,7 @@ from pathlib import Path
 
 SESSIONS = Path.home() / ".claude" / "projects"  # HOME is the agent's own home
 # Sessions that start with one of these were started by the harness, not the person.
-NOT_THE_PERSON = ("A follow-up you scheduled", "A schedule you set", "Time to dream")
+NOT_THE_PERSON = ("A follow-up you scheduled", "A schedule you set", "Time to dream", "Time to commit", "[Site chat]")
 
 
 def conversation(path):

@@ -76,6 +76,7 @@ services:
     command: python sites.py
     environment:
       SITES_HOST: 0.0.0.0
+      RUNNER: runner:9000   # site chats run in the runner, like everything the agent does
     ports:
       - 127.0.0.1:8080:8080
     volumes:
