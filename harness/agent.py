@@ -11,7 +11,7 @@ import threading
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).parent
+ROOT = Path(__file__).parents[1]           # the repo
 AGENT_HOME = ROOT / "data" / "agent-home"   # the agent's own $HOME (and ~/.claude)
 WORKSPACE = ROOT / "agent"                  # where the agent works
 MEMORY = WORKSPACE / "memory"               # its memory across sessions (see agent/CLAUDE.md)
@@ -131,7 +131,7 @@ def prepare_repo():
 
 
 def mcp_config():
-    """Our MCP server (harness_mcp.py), a separate service reached over HTTP.
+    """Our MCP server (mcp_server.py), a separate service reached over HTTP.
     Its tools show up to the agent as mcp__harness__<tool>."""
     return {"mcpServers": {"harness": {"type": "http", "url": MCP_URL}}}
 
@@ -165,7 +165,7 @@ def run_agent(prompt, session_id=None, more_messages=lambda: [], model="sonnet",
               tools=TOOLS, system=APPEND_SYSTEM_PROMPT, harness=True, extra=(), on_event=None):
     """Run one turn on `model` ('sonnet' or 'opus'). session_id=None starts a
     new session, otherwise resumes it (keep one model per session).
-    For site chats (sites.py): harness=False leaves out our MCP tools and
+    For site chats (web/sites.py): harness=False leaves out our MCP tools and
     approvals, extra adds CLI arguments, and on_event sees every event live.
 
     Steering: while the turn runs we call more_messages() about once a second.
@@ -184,7 +184,7 @@ def run_agent(prompt, session_id=None, more_messages=lambda: [], model="sonnet",
     if harness:
         # Our MCP tools, and approvals: writes to outside systems (the "ask"
         # list in agent/.claude/settings.json) always go to the person,
-        # through our MCP server (approve in harness_mcp.py).
+        # through our MCP server (approve in mcp_server.py).
         command += ["--mcp-config", json.dumps(mcp_config()),
                     "--permission-prompt-tool", "mcp__harness__approve"]
     command += list(extra)

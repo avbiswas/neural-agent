@@ -1,15 +1,15 @@
 """Poke the agent from the terminal.
 
-    uv run agentctl.py say "hello"     # put an event in the inbox
-    uv run agentctl.py inbox           # show recent events
-    uv run agentctl.py timers          # show recent timers
-    uv run agentctl.py approve 3       # answer approval request #3 (or: deny 3)
-    uv run agentctl.py watch           # live view: timers -> events -> outbox
+    uv run python -m harness.agentctl say "hello"     # put an event in the inbox
+    uv run python -m harness.agentctl inbox           # show recent events
+    uv run python -m harness.agentctl timers          # show recent timers
+    uv run python -m harness.agentctl approve 3       # answer approval request #3 (or: deny 3)
+    uv run python -m harness.agentctl watch           # live view: timers -> events -> outbox
 """
 import sys
 import time
 
-from db import connect
+from harness.db import connect
 
 db = connect()
 command, args = (sys.argv[1], sys.argv[2:]) if len(sys.argv) > 1 else ("help", [])

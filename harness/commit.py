@@ -3,14 +3,14 @@ the changes and commits them with a good message (the committing skill, in
 agent/.claude/skills/committing). Then the harness pushes the history to
 GitHub as a backup.
 
-    uv run commit.py          # by hand
+    uv run python -m harness.commit     # by hand
     /commit                   # from chat; also runs hourly (see scheduler.py)
 """
 import os
 import subprocess
 
-import github
-from agent import ROOT, WORKSPACE, WORKSPACE_GIT, run_agent
+from harness import github
+from harness.agent import ROOT, WORKSPACE, WORKSPACE_GIT, run_agent
 
 BACKUP_GIT = ROOT / "data" / "workspace-backup.git"  # the harness's own copy, which it pushes
 

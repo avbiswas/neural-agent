@@ -1,7 +1,7 @@
 """Serve the agent's sites (agent/sites/) on 127.0.0.1:8080, each with a chat
 button for talking to the agent about that page.
 
-    uv run sites.py
+    uv run python -m web.sites
     tailscale serve --bg 8080    # once, on the server: https://<server>.<tailnet>.ts.net/
 
 127.0.0.1 means nothing else on your network can reach it. Tailscale Serve
@@ -19,10 +19,10 @@ import os
 import secrets
 from pathlib import Path
 
-from agent import WORKSPACE, run_agent
-from history import log
+from harness.agent import WORKSPACE, run_agent
+from harness.history import log
 
-SITES = Path(__file__).parent / "agent" / "sites"
+SITES = Path(__file__).parents[1] / "agent" / "sites"
 SITES.mkdir(parents=True, exist_ok=True)
 HOST = os.environ.get("SITES_HOST", "127.0.0.1")  # 0.0.0.0 inside Docker; compose publishes it on 127.0.0.1
 

@@ -10,7 +10,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 RUN useradd --create-home --uid 1000 agent \
     && mkdir -p /run/agent-secrets && chown agent /run/agent-secrets
 # Owned by root, so the agent can't change how secrets get used (see the file).
-COPY --chmod=755 with-secrets /usr/local/bin/with-secrets
+COPY --chmod=755 bin/with-secrets /usr/local/bin/with-secrets
 USER agent
 WORKDIR /app
 # Mount points for the volumes, created as `agent` so the volumes are writable by it.

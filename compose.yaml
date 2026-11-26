@@ -20,7 +20,7 @@ services:
   runner:
     image: neural-agent
     restart: unless-stopped
-    command: python runner.py
+    command: python -m harness.runner
     environment:
       RUNNER_HOST: 0.0.0.0
       CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
@@ -39,7 +39,7 @@ services:
 
   worker:
     <<: *harness
-    command: python worker.py
+    command: python -m harness.worker
     environment:
       <<: *harness-env
       RUNNER: runner:9000
@@ -53,18 +53,18 @@ services:
 
   mcp:
     <<: *harness
-    command: python harness_mcp.py
+    command: python -m harness.mcp_server
     environment:
       <<: *harness-env
       MCP_HOST: 0.0.0.0
 
   scheduler:
     <<: *harness
-    command: python scheduler.py
+    command: python -m harness.scheduler
 
   telegram:
     <<: *harness
-    command: python telegram.py
+    command: python -m channels.telegram
     environment:
       <<: *harness-env
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
@@ -75,12 +75,12 @@ services:
 
   console:
     <<: *harness
-    command: python console.py
+    command: python -m channels.console
 
   sites:
     image: neural-agent
     restart: unless-stopped
-    command: python sites.py
+    command: python -m web.sites
     environment:
       SITES_HOST: 0.0.0.0
       RUNNER: runner:9000   # site chats run in the runner, like everything the agent does
@@ -92,11 +92,11 @@ services:
       - chat-history:/app/agent/history           # site chats go in the conversation log
       - agent-secrets:/run/agent-secrets:ro       # to mask secrets in the log
 
-  # The secrets page (see secrets_page.py): the only service that writes them.
+  # The secrets page (see web/secrets_page.py): the only service that writes them.
   secrets:
     image: neural-agent
     restart: unless-stopped
-    command: python secrets_page.py
+    command: python -m web.secrets_page
     environment:
       SECRETS_HOST: 0.0.0.0
     ports:
@@ -106,7 +106,7 @@ services:
 
   # Private access: this container joins your Tailscale network as its own
   # device ("agent") and serves the sites and the secrets page there, over
-  # HTTPS. Nothing else can reach them. Its config: tailscale-serve.json.
+  # HTTPS. Nothing else can reach them. Its config: config/tailscale-serve.json.
   tailscale:
     image: tailscale/tailscale:latest
     restart: unless-stopped
@@ -119,7 +119,7 @@ services:
       TS_SERVE_CONFIG: /config/serve.json
     volumes:
       - tailscale-state:/var/lib/tailscale
-      - ./tailscale-serve.json:/config/serve.json:ro
+      - ./config/tailscale-serve.json:/config/serve.json:ro
 
   # ./setup runs this: the questions, then .env. Not started by `up`.
   setup:
@@ -127,7 +127,7 @@ services:
     profiles: [setup]
     restart: "no"
     user: root                    # it writes .env next to this file, and fixes folder owners
-    entrypoint: ["python", "setup.py"]
+    entrypoint: ["python", "-m", "onboarding.wizard"]
     environment:
       <<: *harness-env
       SETUP_HOST: 0.0.0.0

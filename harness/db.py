@@ -4,7 +4,7 @@ from pathlib import Path
 
 from croniter import croniter
 
-DB_PATH = Path(__file__).parent / "data" / "harness.db"
+DB_PATH = Path(__file__).parents[1] / "data" / "harness.db"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS events (

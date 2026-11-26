@@ -5,9 +5,9 @@ sees); when the harness needs GitHub, it mints a token that lasts one hour and
 reaches only the repos and permissions it asks for.
 
 One-time setup: create the app, then install it on your repos. ./setup does
-this step for you (see setup.py); on its own:
+this step for you (see onboarding/wizard.py); on its own:
 
-    uv run github.py          # then open http://localhost:8090/github
+    uv run python -m harness.github     # then open http://localhost:8090/github
 """
 import html
 import http.server
@@ -24,7 +24,7 @@ from pathlib import Path
 
 import jwt
 
-APP_FILE = Path(__file__).parent / "data" / "github-app.json"  # the app's id and private key
+APP_FILE = Path(__file__).parents[1] / "data" / "github-app.json"  # the app's id and private key
 PORT = 8090
 SETUP_URL = f"http://localhost:{PORT}"
 

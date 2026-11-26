@@ -10,9 +10,9 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
-import github
+from harness import github
 
-HISTORY = Path(__file__).parent / "agent" / "history"
+HISTORY = Path(__file__).parents[1] / "agent" / "history"
 SECRETS = Path(os.environ.get("SECRETS_DIR", "/run/agent-secrets"))
 
 

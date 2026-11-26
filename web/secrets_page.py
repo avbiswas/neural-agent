@@ -2,7 +2,7 @@
 use (API tokens for Fly, Vercel...). A harness service, not one of the agent's
 sites, on its own port, so no page the agent writes can reach it.
 
-    uv run secrets_page.py
+    uv run python -m web.secrets_page
     tailscale serve --bg --https 8443 8081    # once: https://<server>.<tailnet>.ts.net:8443/
 
 It never shows a value, only which secrets exist. The agent asks for missing

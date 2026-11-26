@@ -1,11 +1,11 @@
 """Turns due timers into inbox events. The agent is never called from here:
 a timer is just one more thing that writes a row into `events`.
 
-    uv run scheduler.py
+    uv run python -m harness.scheduler
 """
 import time
 
-from db import connect, next_run
+from harness.db import connect, next_run
 
 db = connect()
 

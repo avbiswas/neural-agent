@@ -15,7 +15,7 @@ from datetime import datetime, timedelta, timezone
 from croniter import croniter
 from mcp.server.mcpserver import MCPServer
 
-from db import DB_TIME, connect, last_channel, next_run
+from harness.db import DB_TIME, connect, last_channel, next_run
 
 server = MCPServer("harness")
 MAX_SCHEDULES = 10                       # so a confused agent can't flood its own inbox

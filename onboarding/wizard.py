@@ -17,7 +17,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-import github
+from harness import github
 
 PROJECT = Path("/project")       # the folder with compose.yaml, mounted in by ./setup
 ENV = PROJECT / ".env"
@@ -201,7 +201,7 @@ def cli():
 # --- the web version ----------------------------------------------------------
 # The same steps as a page. Each check is a small JSON call; "Finish" writes .env.
 
-PAGE = (Path(__file__).parent / "setup.html").read_text()
+PAGE = (Path(__file__).parent / "wizard.html").read_text()
 
 
 class Wizard(github.Setup):  # the GitHub app pages (/github, /created, /installed) come with it

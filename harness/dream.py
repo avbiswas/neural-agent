@@ -2,12 +2,12 @@
 dream and updates memory/ to match. The strategy is in the dreaming skill
 (agent/.claude/skills/dreaming); this file only starts the run.
 
-    uv run dream.py           # by hand
+    uv run python -m harness.dream      # by hand
     /dream                    # from chat; also runs nightly (see scheduler.py)
 """
 from datetime import datetime, timezone
 
-from agent import MEMORY, ROOT, run_agent
+from harness.agent import MEMORY, ROOT, run_agent
 
 LAST_DREAM = ROOT / "data" / "last-dream"  # when the last dream started (UTC)
 

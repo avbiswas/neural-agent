@@ -1,4 +1,4 @@
-"""The Telegram channel: the same job as console.py, over Telegram's Bot API.
+"""The Telegram channel: the same job as channels/console.py, over Telegram's Bot API.
 
     In:  long-poll getUpdates -> a row in `events` (source 'telegram')
          Files (photos, documents, voice...) are saved in agent/uploads/, and
@@ -6,7 +6,7 @@
     Out: pending 'telegram' rows in `outbox` -> sendMessage
     Approvals: a message with Approve / Deny buttons; a press updates `approvals`
 
-    uv run telegram.py
+    uv run python -m channels.telegram
 """
 import json
 import os
@@ -18,8 +18,8 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
-from agent import WORKSPACE, read_env_file
-from db import DB_PATH, connect
+from harness.agent import WORKSPACE, read_env_file
+from harness.db import DB_PATH, connect
 
 config = {**read_env_file(".env", ".envrc"), **os.environ}
 if not config.get("TELEGRAM_BOT_TOKEN"):

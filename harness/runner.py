@@ -5,7 +5,7 @@ database, no Telegram token, no keys of yours.
 The worker connects, sends claude's arguments as one JSON line, and from then
 on the connection is claude's stdin and stdout.
 
-    uv run runner.py
+    uv run python -m harness.runner
 """
 import json
 import os
@@ -13,7 +13,7 @@ import socketserver
 import subprocess
 import threading
 
-from agent import WORKSPACE, agent_env, prepare_home
+from harness.agent import WORKSPACE, agent_env, prepare_home
 
 HOST = os.environ.get("RUNNER_HOST", "127.0.0.1")  # 0.0.0.0 in Docker (compose network only)
 

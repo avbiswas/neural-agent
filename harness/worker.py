@@ -1,10 +1,10 @@
 import time
 
-from db import connect
-from agent import run_agent
-from commit import commit
-from dream import dream
-from history import backup as backup_history, log
+from harness.db import connect
+from harness.agent import run_agent
+from harness.commit import commit
+from harness.dream import dream
+from harness.history import backup as backup_history, log
 
 db = connect()
 
@@ -60,7 +60,7 @@ def recent_chat(before_id, pairs=3):
 
 def reply_to(events, text):
     """Mark events done and put the reply in the outbox, addressed to the channel
-    the message came from. Channel processes (console.py, telegram.py) deliver it."""
+    the message came from. Channel processes (channels/) deliver it."""
     db.executemany("UPDATE events SET status = 'done', reply = ? WHERE id = ?",
                    [(text, e["id"]) for e in events])
     if events[0]["source"] in USER_SOURCES:
@@ -181,7 +181,7 @@ while True:
             ON CONFLICT (key) DO UPDATE SET session_id = excluded.session_id,
                                             updated_at = CURRENT_TIMESTAMP
         """, (result["session_id"],))
-    # -> outbox, delivered by console.py / telegram.py. A timer run's final
+    # -> outbox, delivered by channels/console.py / telegram.py. A timer run's final
     # text stays here: it only reaches the person through send_message.
     reply_to(events, reply)
     if event["source"] in USER_SOURCES:  # the conversation log (history.py)
