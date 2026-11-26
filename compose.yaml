@@ -115,7 +115,7 @@ services:
       TS_AUTHKEY: ${TS_AUTHKEY:-}           # only needed for the first login
       TS_HOSTNAME: ${TS_HOSTNAME:-agent}
       TS_STATE_DIR: /var/lib/tailscale
-      TS_USERSPACE: "true"                  # no special privileges needed, Mac or server
+      TS_USERSPACE: "true"                  # no special privileges needed, desktop or server
       TS_SERVE_CONFIG: /config/serve.json
     volumes:
       - tailscale-state:/var/lib/tailscale

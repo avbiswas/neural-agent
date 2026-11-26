@@ -24,7 +24,7 @@ while True:
     """).fetchall():
         if timer["cron"]:
             # A schedule stays pending and moves to its next run, counted from now.
-            # So if the Mac slept through 8 runs, it fires once now, not 8 times.
+            # So if the computer slept through 8 runs, it fires once now, not 8 times.
             db.execute("UPDATE timers SET due_at = ? WHERE id = ?", (next_run(timer["cron"]), timer["id"]))
             what = f"A schedule you set has fired (timer #{timer['id']}, {timer['cron']})"
         else:

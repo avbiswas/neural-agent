@@ -1,7 +1,7 @@
 # Set up your own always-on agent
 
 You'll end up with a personal AI assistant that you message on Telegram. It
-runs all the time on your Mac or on a small server, remembers what you tell it,
+runs all the time on your computer or on a small server, remembers what you tell it,
 can build private web pages for you, and backs itself up to your GitHub.
 Only you can reach it.
 
@@ -16,30 +16,38 @@ few commands and paste a few keys.
 | **Telegram** on your phone | how you talk to it | free |
 | **Tailscale** | so its pages open only on your devices | free |
 | **GitHub** | backups (optional, can be done later) | free |
-| **A server** (only if it should run when your Mac is off) | see Option B | about €4 a month |
+| **A server** (only if it should run when your computer is off) | see Option B | about €4 a month |
 
 Install Tailscale on your phone and your laptop now, and sign in on both with
 the same account: https://tailscale.com/download
 
-## Option A: run it on your Mac
+## Option A: run it on your computer
+
+Works on macOS, Linux and Windows.
 
 1. **Install Docker Desktop** from https://www.docker.com/products/docker-desktop/
-   and open it (wait until it says it's running).
-2. **Download the agent.** Open the Terminal app and paste:
+   and open it (wait until it says it's running). On Linux you can install
+   Docker Engine instead: `curl -fsSL https://get.docker.com | sh`, then
+   `sudo usermod -aG docker $USER` and log out and back in.
+2. **Open a terminal.** macOS: the Terminal app. Linux: your usual terminal.
+   Windows: install WSL once (in PowerShell: `wsl --install`, then restart),
+   open **Ubuntu** from the Start menu, and in Docker Desktop's settings turn
+   on Resources, WSL integration, Ubuntu. Run everything below in Ubuntu.
+3. **Download the agent.** Paste:
 
        git clone https://github.com/avbiswas/neural-agent.git
        cd neural-agent
 
-   (If your Mac asks to install developer tools, click Install, then paste
-   the two lines again.)
-3. **Run setup:**
+   (If it says `git` isn't installed: on macOS, click Install when asked and
+   paste the lines again; on Linux or WSL, run `sudo apt install -y git` first.)
+4. **Run setup:**
 
        ./setup
 
    Prefer clicking to typing? Run `./setup --web` and open
    http://localhost:8090 instead. Same steps.
 
-The agent runs while your Mac is awake and Docker Desktop is open.
+The agent runs while your computer is awake and Docker is running.
 
 ## Option B: run it on a server (always on)
 

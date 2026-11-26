@@ -9,7 +9,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 if ! docker info >/dev/null 2>&1; then
-  echo "Docker isn't running. On a Mac, open Docker Desktop. On a server, install it with:"
+  echo "Docker isn't running. On a desktop, open Docker Desktop. On a server, install it with:"
   echo "  curl -fsSL https://get.docker.com | sh"
   exit 1
 fi

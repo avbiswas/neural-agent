@@ -4,7 +4,7 @@ A minimal always-on personal agent in Python, built to show how the pieces of an
 
 This is the repo for the Neural Breakdown video on building an always-on agent from scratch, based on Anthropic's "Building always-on agents". You can cycle through individual commits of this repo (`stage 1` to `stage 20`) and see how the full project came to life. The stages use a flat file layout, as built in the video; the last commits move the files into folders and add the docs.
 
-**Want your own?** Follow [ONBOARDING.md](ONBOARDING.md): install Docker, run `./setup`, and you're chatting with it on Telegram in about 20 minutes, on your Mac or a small server.
+**Want your own?** Follow [ONBOARDING.md](ONBOARDING.md): install Docker, run `./setup`, and you're chatting with it on Telegram in about 20 minutes, on your own computer or a small server.
 
 ## Features
 
