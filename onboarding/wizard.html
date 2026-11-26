@@ -53,8 +53,8 @@
   <p>Your agent's pages open only on your own devices, through Tailscale.</p>
   <ol><li>Sign up at <a href="https://tailscale.com" target="_blank">tailscale.com</a>, and install Tailscale on your phone and laptop.</li>
       <li>On the <a href="https://login.tailscale.com/admin/dns" target="_blank">DNS page</a>, turn on <b>MagicDNS</b> and <b>HTTPS Certificates</b>.</li>
-      <li>On the <a href="https://login.tailscale.com/admin/settings/keys" target="_blank">Keys page</a>, click <b>Generate auth key</b> (the defaults are fine) and paste it here.</li></ol>
-  <div class="row"><input id="tailscale" placeholder="Your auth key" autocomplete="off"><button data-check="tailscale">Check</button></div>
+      <li>On the <a href="https://login.tailscale.com/admin/settings/keys" target="_blank">Keys page</a>, click <b>Generate auth key</b> (the defaults are fine) and paste it here. Tailscale shows the key <b>only once</b>, so copy the whole thing before closing that window.</li></ol>
+  <div class="row"><input id="tailscale" placeholder="tskey-auth-…" autocomplete="off"><button data-check="tailscale">Check</button></div>
   <div class="msg"></div></section>
 
 <section class="step gh" id="s-github"><h2><span class="num"><span>5</span></span>GitHub backups <small style="color:var(--muted);font-weight:400">(optional)</small></h2>
@@ -99,7 +99,7 @@ const messages = {
   telegram: ["Checking…", "✓ Your bot is ready.", "✗ Telegram doesn't know that token. Copy it again from BotFather."],
   chat: ["Waiting for your message… (up to a minute)", "✓ Found you. Only you can talk to your agent.", "✗ No message came. Send your bot a message, then press again."],
   tz: ["Checking…", "✓ Saved.", "✗ Unknown timezone. Use a name like America/New_York."],
-  tailscale: ["Checking…", "✓ Saved.", "✗ Paste the key first."],
+  tailscale: ["Checking…", "✓ Looks right.", "✗ That's not a whole auth key. It starts with tskey-auth-. Copy all of it, or generate a new one."],
 };
 document.querySelectorAll("[data-check]").forEach(button => button.onclick = async () => {
   const kind = button.dataset.check, input = document.getElementById(kind);

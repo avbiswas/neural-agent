@@ -87,7 +87,9 @@ Each answer is checked right away, so a typo can't slip through.
    - DNS page (https://login.tailscale.com/admin/dns): turn on **MagicDNS**
      and **HTTPS Certificates**.
    - Keys page (https://login.tailscale.com/admin/settings/keys): **Generate
-     auth key** with the default settings, and paste it.
+     auth key** with the default settings, and paste it. Tailscale shows the
+     key only once, so copy the whole thing (it starts with `tskey-auth-`)
+     before closing that window.
 5. **GitHub backups** (optional, you can skip and run `./setup` again later):
    - Create two **private, empty** repos (don't tick "Add a README"):
      `agent-workspace` (the agent's files) and `agent-history` (your

@@ -99,7 +99,7 @@ def check_timezone(name):
 
 
 def check_tailscale(key):
-    return bool(key)
+    return key.startswith("tskey-auth-")
 
 
 def prepare_folders():
@@ -180,10 +180,12 @@ def cli():
         print("Your agent's pages are only reachable from your own devices, through Tailscale.\n"
               "1. Sign up at https://tailscale.com and install Tailscale on your phone and laptop.\n"
               f"2. On {TAILSCALE_DNS}, turn on MagicDNS and HTTPS Certificates.\n"
-              f"3. On {TAILSCALE_KEYS}, click \"Generate auth key\" (the defaults are fine).")
-        key = ask("Paste the key")
+              f"3. On {TAILSCALE_KEYS}, click \"Generate auth key\" (the defaults are fine).\n"
+              "   Tailscale shows the key only once: copy the whole thing before closing that window.")
+        key = ask("Paste the key (tskey-auth-...)")
         while not check_tailscale(key):
-            key = ask("Paste the key")
+            key = ask("✗ That's not a whole auth key. It starts with tskey-auth-. Copy all of it,\n"
+                      "  or generate a new one if that window is closed")
         new["TS_AUTHKEY"] = key
 
     step(5, "GitHub backups")
