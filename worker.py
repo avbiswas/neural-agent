@@ -6,7 +6,7 @@ from agent import run_agent
 db = connect()
 
 # Sources that are a person chatting. Their pending messages get batched;
-# everything else (timers, later) runs one event at a time.
+# everything else (timers) runs one event at a time.
 USER_SOURCES = ("cli", "telegram")
 marks = ",".join("?" * len(USER_SOURCES))
 
@@ -33,6 +33,14 @@ def pick_session():
     if idle < IDLE_LIMIT_MINUTES:
         return row["session_id"], f"resume ({idle} min since last run)"
     return None, f"new (idle {idle} min)"
+
+
+def last_channel():
+    """Where the person last talked to us. A timer run has no chat of its
+    own, so its send_message goes there."""
+    row = db.execute(f"""SELECT source FROM events WHERE source IN ({marks})
+                         ORDER BY id DESC LIMIT 1""", USER_SOURCES).fetchone()
+    return row["source"] if row else "cli"
 
 
 def reply_to(events, text):
@@ -98,10 +106,17 @@ while True:
         events.extend(new)
         return [e["text"] for e in new]
 
-    session_id, why = pick_session()
+    # The chat continues one conversation. A timer gets a fresh session: its
+    # prompt was written to stand on its own, and it shouldn't derail the chat.
+    if event["source"] in USER_SOURCES:
+        session_id, why = pick_session()
+        channel = event["source"]
+    else:
+        session_id, why = None, "new (timer runs get their own session)"
+        channel = last_channel()
     print(f"        session: {why}")
     try:
-        result = run_agent(prompt, session_id, more_messages, channel=events[0]["source"])
+        result = run_agent(prompt, session_id, more_messages, channel=channel)
     except Exception as error:
         db.executemany("UPDATE events SET status = 'failed', reply = ? WHERE id = ?",
                        [(str(error), e["id"]) for e in events])
@@ -110,12 +125,15 @@ while True:
     reply = result["text"]
     ids = " ".join(f"#{e['id']}" for e in events)
 
-    db.execute("""
-        INSERT INTO sessions (key, session_id) VALUES ('chat', ?)
-        ON CONFLICT (key) DO UPDATE SET session_id = excluded.session_id,
-                                        updated_at = CURRENT_TIMESTAMP
-    """, (result["session_id"],))
-    reply_to(events, reply)  # -> outbox, delivered by console.py / telegram.py
+    if event["source"] in USER_SOURCES:
+        db.execute("""
+            INSERT INTO sessions (key, session_id) VALUES ('chat', ?)
+            ON CONFLICT (key) DO UPDATE SET session_id = excluded.session_id,
+                                            updated_at = CURRENT_TIMESTAMP
+        """, (result["session_id"],))
+    # -> outbox, delivered by console.py / telegram.py. A timer run's final
+    # text stays here: it only reaches the person through send_message.
+    reply_to(events, reply)
     print(f"worker: {ids} processing -> done      reply={reply!r}")
     print(f"        tokens in={result['input_tokens']} out={result['output_tokens']} "
           f"context={result['context_tokens']} cost=${result['cost_usd']:.4f}")

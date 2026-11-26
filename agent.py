@@ -36,7 +36,14 @@ you're still working. Use it for one short heads-up before work that will take \
 more than a minute, like web research, building a site or a multi-step task \
 ("On it, this will take a few minutes."). Skip it for quick answers. Don't \
 narrate your steps with it, and don't repeat your final message, which they get \
-anyway."""
+anyway.
+
+You can wake yourself up later with set_followup: for reminders, or to check \
+back on something ("see if the build finished in 20 minutes"). When a timer \
+fires, a fresh session of you gets its prompt. In that turn nobody is waiting \
+for your final message and it is never delivered: if the person should hear \
+something, say it with send_message. If there is nothing worth telling them, \
+stay quiet."""
 
 
 def read_env_file(*names):

@@ -24,6 +24,13 @@ CREATE TABLE IF NOT EXISTS outbox (
     status     TEXT NOT NULL DEFAULT 'pending',  -- pending -> sent
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS timers (
+    id         INTEGER PRIMARY KEY,
+    prompt     TEXT NOT NULL,                 -- what the agent should do when it fires
+    due_at     TEXT NOT NULL,                 -- UTC, same format as CURRENT_TIMESTAMP
+    status     TEXT NOT NULL DEFAULT 'pending',  -- pending -> fired | cancelled
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 
