@@ -95,6 +95,8 @@ def agent_env():
         "MCP_TOOL_TIMEOUT": "600000",              # let `approve` wait for the person (ms)
         # Where the agent's sites are reachable (the sites skill prints links with it).
         "SITES_URL": config.get("SITES_URL", "http://127.0.0.1:8080"),
+        # The secrets page, for links when the agent needs a key (secrets skill).
+        "SECRETS_URL": config.get("SECRETS_URL", "http://127.0.0.1:8081"),
         # Plain `git` in agent/ uses the workspace repo. (No GitHub login: the
         # harness pushes the backup, see commit.py.)
         "GIT_DIR": str(WORKSPACE_GIT),

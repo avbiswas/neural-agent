@@ -10,7 +10,7 @@ __pycache__/
 # instance data and secrets: never committed
 .env
 .envrc
-secrets/
+/secrets/
 data/
 *.db
 *.db-wal

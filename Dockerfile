@@ -7,7 +7,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 # Everything runs as an ordinary user, never root.
-RUN useradd --create-home --uid 1000 agent
+RUN useradd --create-home --uid 1000 agent \
+    && mkdir -p /run/agent-secrets && chown agent /run/agent-secrets
+# Owned by root, so the agent can't change how secrets get used (see the file).
+COPY --chmod=755 with-secrets /usr/local/bin/with-secrets
 USER agent
 WORKDIR /app
 # Mount points for the volumes, created as `agent` so the volumes are writable by it.

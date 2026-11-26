@@ -1,7 +1,7 @@
 # The whole agent: `docker compose up -d --build`, on your laptop or a server.
 #
 # Secrets come from .env next to this file (KEY=value lines) or your shell, and
-# each service gets only the ones it needs. Only `sites` publishes a port, and
+# each service gets only the ones it needs. Only `sites` and `secrets` publish a port, and
 # only on 127.0.0.1: put Tailscale Serve in front of it, never the internet.
 
 x-harness: &harness           # settings shared by the harness services
@@ -24,6 +24,7 @@ services:
       RUNNER_HOST: 0.0.0.0
       CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
       SITES_URL: ${SITES_URL:-http://127.0.0.1:8080}
+      SECRETS_URL: ${SECRETS_URL:-http://127.0.0.1:8081}
       TZ: ${TZ:-UTC}
     volumes:
       - ./agent:/app/agent
@@ -32,6 +33,7 @@ services:
       - ./agent/.claude:/app/agent/.claude:ro
       - agent-home:/app/data/agent-home
       - workspace-git:/app/data/workspace.git     # the workspace's git history
+      - agent-secrets:/run/agent-secrets:ro       # your keys, used through with-secrets
 
   worker:
     <<: *harness
@@ -79,6 +81,18 @@ services:
     volumes:
       - ./agent/sites:/app/agent/sites:ro
 
+  # The secrets page (see secrets_page.py): the only service that writes them.
+  secrets:
+    image: neural-agent
+    restart: unless-stopped
+    command: python secrets_page.py
+    environment:
+      SECRETS_HOST: 0.0.0.0
+    ports:
+      - 127.0.0.1:8081:8081
+    volumes:
+      - agent-secrets:/run/agent-secrets
+
   # One-time: connect GitHub (see github.py). Not started by `up`.
   #   docker compose run --rm --service-ports github-setup
   github-setup:
@@ -96,3 +110,4 @@ volumes:
   harness-data:
   agent-home:
   workspace-git:
+  agent-secrets:

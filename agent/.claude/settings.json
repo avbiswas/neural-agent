@@ -18,9 +18,11 @@
     "deny": [
       "Bash(git reset:*)",
       "Bash(git rebase:*)",
-      "Bash(git commit --amend:*)"
+      "Bash(git commit --amend:*)",
+      "Read(/run/agent-secrets/**)"
     ],
     "ask": [
+      "Bash(with-secrets:*)",
       "Bash(git push:*)",
       "Bash(gh:*)",
       "Bash(ssh:*)",
