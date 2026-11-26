@@ -98,7 +98,7 @@ def check_timezone(name):
 
 
 def check_tailscale(key):
-    return key.startswith("tskey-auth-")
+    return bool(key)
 
 
 def prepare_folders():
@@ -180,9 +180,9 @@ def cli():
               "1. Sign up at https://tailscale.com and install Tailscale on your phone and laptop.\n"
               f"2. On {TAILSCALE_DNS}, turn on MagicDNS and HTTPS Certificates.\n"
               f"3. On {TAILSCALE_KEYS}, click \"Generate auth key\" (the defaults are fine).")
-        key = ask("Paste the key (tskey-auth-...)")
+        key = ask("Paste the key")
         while not check_tailscale(key):
-            key = ask("✗ That's not an auth key. It starts with tskey-auth-")
+            key = ask("Paste the key")
         new["TS_AUTHKEY"] = key
 
     step(5, "GitHub backups")
