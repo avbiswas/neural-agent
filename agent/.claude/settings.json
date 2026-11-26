@@ -6,7 +6,8 @@
       "WebSearch",
       "WebFetch",
       "mcp__harness",
-      "Bash(python3 .claude/skills/sites/list_sites.py)"
+      "Bash(python3 .claude/skills/sites/list_sites.py)",
+      "Bash(python3 .claude/skills/dreaming/transcripts.py:*)"
     ]
   }
 }

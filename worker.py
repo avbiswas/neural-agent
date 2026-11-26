@@ -2,6 +2,7 @@ import time
 
 from db import connect
 from agent import run_agent
+from dream import dream
 
 db = connect()
 
@@ -15,7 +16,7 @@ IDLE_LIMIT_MINUTES = 60   # the prompt cache lives ~1h, so resuming within it is
 
 # User messages that may join the current run (batching or steering): pending,
 # from a person, and not past a pending /new, which must split the conversation.
-JOINABLE = f"""status = 'pending' AND source IN ({marks}) AND trim(text) != '/new'
+JOINABLE = f"""status = 'pending' AND source IN ({marks}) AND trim(text) NOT IN ('/new', '/dream')
     AND id < (SELECT coalesce(min(id), 1e18) FROM events
               WHERE status = 'pending' AND trim(text) = '/new')"""
 
@@ -76,6 +77,21 @@ while True:
         db.execute("DELETE FROM sessions WHERE key = 'chat'")
         reply_to([event], "Started a new conversation.")
         print(f"worker: #{event['id']} /new -> chat session cleared")
+        continue
+
+    # /dream: review recent conversations and update memory (see dream.py).
+    # From chat, the summary comes back as the reply; from the nightly
+    # schedule it stays in the events table.
+    if event["text"].strip() == "/dream":
+        print(f"worker: #{event['id']} /dream -> dreaming")
+        try:
+            result = dream()
+        except Exception as error:
+            db.execute("UPDATE events SET status = 'failed', reply = ? WHERE id = ?", (str(error), event["id"]))
+            print(f"worker: #{event['id']} dream failed    {error}")
+            continue
+        reply_to([event], result["text"])
+        print(f"worker: #{event['id']} dream done      {result['text']!r}  cost=${result['cost_usd']:.4f}")
         continue
 
     # Batching: if it's a user message, also claim every other pending user

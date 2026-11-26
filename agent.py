@@ -18,7 +18,7 @@ MEMORY = WORKSPACE / "memory"               # its memory across sessions (see ag
 # Only the built-in tools the agent needs. Leaving out Claude Code's own
 # scheduling/notification tools (CronCreate, ScheduleWakeup, PushNotification...)
 # matters: they only live inside one session, so they'd silently never fire.
-TOOLS = "Bash,Read,Edit,Write,WebSearch,WebFetch,Skill,ToolSearch,Task"
+TOOLS = "Bash,Read,Edit,Write,Grep,Glob,WebSearch,WebFetch,Skill,ToolSearch,Task"
 
 # Added on top of Claude Code's own system prompt. Only the last message of a
 # turn reaches the person (see `result`); everything before it stays internal.
