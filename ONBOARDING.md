@@ -16,7 +16,7 @@ few commands and paste a few keys.
 | **Telegram** on your phone | how you talk to it | free |
 | **Tailscale** | so its pages open only on your devices | free |
 | **GitHub** | backups (optional, can be done later) | free |
-| **A server** (only if it should run when your computer is off) | see Option B | about €4 a month |
+| **A server** (only if it should run when your computer is off) | see Option B | a few dollars a month |
 
 Install Tailscale on your phone and your laptop now, and sign in on both with
 the same account: https://tailscale.com/download
@@ -51,10 +51,10 @@ The agent runs while your computer is awake and Docker is running.
 
 ## Option B: run it on a server (always on)
 
-1. **Rent a server.** At https://www.hetzner.com/cloud: create a project, Add
-   Server, location close to you, image **Ubuntu 24.04**, type **CX22**. Under
-   SSH keys, either add yours or skip it (Hetzner then emails you a root
-   password). Create. Note the server's IP address.
+1. **Rent a server.** Any cloud provider that offers Linux servers (often
+   called a VPS) works. Pick **Ubuntu 24.04**, at least **2 GB of RAM**, and a
+   location close to you. Note the server's IP address and how to log in as
+   `root` (with your SSH key, or the password the provider gives you).
 2. **Log in** from your laptop's terminal. The `-L` part makes setup's web page
    and the GitHub step open in your laptop's browser:
 
@@ -82,7 +82,7 @@ Each answer is checked right away, so a typo can't slip through.
    name and a username ending in `bot`. Paste the token it gives you. Then
    send your new bot a message ("hi"): setup spots it, and from then on your
    agent answers only you.
-3. **Timezone.** Already guessed, just confirm (e.g. `Europe/Berlin`).
+3. **Timezone.** Already guessed, just confirm (e.g. `America/New_York`).
 4. **Tailscale.** In the Tailscale admin console:
    - DNS page (https://login.tailscale.com/admin/dns): turn on **MagicDNS**
      and **HTTPS Certificates**.
@@ -111,8 +111,8 @@ When setup finishes, it prints your agent's private links:
 
 - Say **hi** to your bot. You'll see 👀, then an answer.
 - "Remind me to call mom in 10 minutes."
-- "Every morning at 8, send me the weather in Berlin."
-- "Make me a page comparing three laptops under €1000." You get a link, and
+- "Every morning at 8, send me the weather where I live."
+- "Make me a page comparing three budget laptops." You get a link, and
   the page has a chat button for questions and changes.
 - Send it a photo or a PDF with a question.
 - Anything that acts as you outside (pushing code, deploying) asks first, with

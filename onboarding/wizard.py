@@ -169,7 +169,7 @@ def cli():
     step(3, "Your timezone")
     zone = ask("Your timezone, for reminders like \"at 6pm\"", env.get("TZ") or os.environ.get("HOST_TZ", "UTC"))
     while not check_timezone(zone):
-        zone = ask("✗ Unknown timezone. Use a name like Europe/Berlin or America/New_York")
+        zone = ask("✗ Unknown timezone. Use a name like America/New_York or Asia/Tokyo")
     new["TZ"] = zone
 
     step(4, "Private access (Tailscale)")

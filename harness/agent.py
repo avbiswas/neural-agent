@@ -16,7 +16,7 @@ AGENT_HOME = ROOT / "data" / "agent-home"   # the agent's own $HOME (and ~/.clau
 WORKSPACE = ROOT / "agent"                  # where the agent works
 MEMORY = WORKSPACE / "memory"               # its memory across sessions (see agent/CLAUDE.md)
 # The workspace is a git repo, but its history lives here, outside agent/
-# (agent/ itself sits inside the tutorial's own repo). GIT_DIR points git at it.
+# (agent/ itself sits inside this project's repo). GIT_DIR points git at it.
 WORKSPACE_GIT = ROOT / "data" / "workspace.git"
 
 # The agent runs in its own container (runner.py); the harness reaches it over

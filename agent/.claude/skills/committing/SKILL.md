@@ -24,7 +24,7 @@ GitHub afterwards as a backup: you don't push.
    separate changes. The message says what changed and why, in plain words:
 
        git add -A
-       git commit -m "Memory: moved city to Munich, merged food notes" -m "Person said they moved; two notes covered the same topic."
+       git commit -m "Memory: updated home city, merged food notes" -m "Person said they moved; two notes covered the same topic."
 
 ## Rules
 
