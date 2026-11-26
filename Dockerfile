@@ -14,7 +14,7 @@ COPY --chmod=755 with-secrets /usr/local/bin/with-secrets
 USER agent
 WORKDIR /app
 # Mount points for the volumes, created as `agent` so the volumes are writable by it.
-RUN mkdir -p data/agent-home data/workspace.git agent/sites
+RUN mkdir -p data/agent-home data/workspace.git agent/sites agent/history
 
 # Claude Code, installed for that user (the runner is the only service that uses it).
 RUN curl -fsSL https://claude.ai/install.sh | bash

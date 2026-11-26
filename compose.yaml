@@ -34,6 +34,7 @@ services:
       - agent-home:/app/data/agent-home
       - workspace-git:/app/data/workspace.git     # the workspace's git history
       - agent-secrets:/run/agent-secrets:ro       # your keys, used through with-secrets
+      - chat-history:/app/agent/history:ro        # the conversation log: it can read, not change
 
   worker:
     <<: *harness
@@ -44,7 +45,8 @@ services:
       MCP_URL: http://mcp:8001/mcp
     volumes:
       - harness-data:/app/data  # also holds the GitHub app's key (data/github-app.json)
-      - ./agent:/app/agent    # memory sizes after a dream; the conversation log
+      - ./agent:/app/agent    # to read memory sizes after a dream
+      - chat-history:/app/agent/history           # writes and backs up the conversation log
       - agent-secrets:/run/agent-secrets:ro       # to mask secrets in the log
       - workspace-git:/app/data/workspace.git:ro  # to commit-check and back up the history
 
@@ -83,7 +85,7 @@ services:
       - 127.0.0.1:8080:8080
     volumes:
       - ./agent/sites:/app/agent/sites:ro
-      - ./agent/history:/app/agent/history        # site chats go in the conversation log
+      - chat-history:/app/agent/history           # site chats go in the conversation log
       - agent-secrets:/run/agent-secrets:ro       # to mask secrets in the log
 
   # The secrets page (see secrets_page.py): the only service that writes them.
@@ -116,3 +118,4 @@ volumes:
   agent-home:
   workspace-git:
   agent-secrets:
+  chat-history:

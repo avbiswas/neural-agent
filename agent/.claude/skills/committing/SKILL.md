@@ -15,8 +15,6 @@ GitHub afterwards as a backup: you don't push.
 
 1. See what changed: `git status`, then `git diff` (and `git diff --stat` if
    it's long). New files show up as untracked; read them too.
-   `history/` is the conversation log the harness writes: commit it as is,
-   without reading it.
 2. Check before you commit:
    - **No secrets.** If a file holds a token, password or private key, don't
      commit it: remove the secret from the file (or leave the file out) and

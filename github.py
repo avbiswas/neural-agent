@@ -15,8 +15,10 @@ import http.server
 import json
 import os
 import secrets
+import subprocess
 import threading
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -65,6 +67,33 @@ def token(app, repos=None, permissions=None):
     return reply["token"]
 
 
+def pick_repos(app):
+    """(workspace repo, chat-log repo), out of the repos you gave the app.
+    The chat log goes to the one whose name ends in -history or -chats."""
+    names = [r["name"] for r in api("GET", "/installation/repositories?per_page=100", token(app))["repositories"]]
+    history = next((name for name in names if name.endswith(("-history", "-chats"))), None)
+    others = [name for name in names if name != history]
+    workspace = app.get("backup_repo") if app.get("backup_repo") in others else (others[0] if len(others) == 1 else None)
+    return workspace, history
+
+
+def push(app, git_dir, repo):
+    """Push main from one of the harness's own repos to <you>/<repo>, and say
+    how it went. Never forced: if history was rewritten, GitHub refuses."""
+    try:
+        repo_token = token(app, [repo], {"contents": "write"})
+    except urllib.error.HTTPError as error:
+        return f"GitHub refused a token for {repo} ({error.code}). Is the app installed on it?"
+    url = f"https://x-access-token:{repo_token}@github.com/{app['owner']}/{repo}.git"
+    result = subprocess.run(["git", "--git-dir", str(git_dir), "push", "--porcelain", url, "main"],
+                            capture_output=True, text=True)
+    if result.returncode == 0:
+        return "already backed up" if "[up to date]" in result.stdout else f"pushed to {repo}"
+    if "rejected" in result.stdout + result.stderr:
+        return f"not pushed: {repo} has commits we don't (was history rewritten?)"
+    return "not pushed: " + (result.stderr.strip().replace(repo_token, "***") or "push failed")
+
+
 # --- one-time setup: GitHub's "app manifest" flow ---------------------------
 # 1. Our page posts a manifest (the app's settings) to GitHub.
 # 2. You click "Create GitHub App"; GitHub sends you back to /created?code=...
@@ -85,9 +114,11 @@ MANIFEST = {
 SETUP_PAGE = f"""<!doctype html><title>Connect GitHub</title>
 <body style="font: 16px system-ui; max-width: 36em; margin: 4em auto">
 <h1>Connect your agent to GitHub</h1>
-<p>First create an empty private repo for the agent's backup, e.g.
-<b>agent-workspace</b>. This page then creates a private GitHub App for your
-agent, and GitHub asks which repos it may use: pick that repo.</p>
+<p>First create two empty private repos: <b>agent-workspace</b> (the agent's
+files: memory, sites, skills) and <b>agent-history</b> (your conversations;
+the name must end in <code>-history</code> or <code>-chats</code>). This page then creates a private
+GitHub App for your agent, and GitHub asks which repos it may use: pick those
+two.</p>
 <form method="post" action="https://github.com/settings/apps/new?state={STATE}">
 <input type="hidden" name="manifest" value="{html.escape(json.dumps(MANIFEST))}">
 <button style="font-size: 1.1em">Create GitHub App</button></form>"""
@@ -109,12 +140,12 @@ class Setup(http.server.BaseHTTPRequestHandler):
             self.end_headers()
         elif url.path == "/installed" and "installation_id" in query:
             app = {**json.loads(APP_FILE.read_text()), "installation_id": int(query["installation_id"])}
-            # The repo you picked is where the backup goes.
-            repos = api("GET", "/installation/repositories", token(app))["repositories"]
-            app["backup_repo"] = repos[0]["name"]
+            workspace, history = pick_repos(app)
+            app["backup_repo"] = workspace
             save_app(app)
-            print(f"github: installed, backing up to {app['owner']}/{app['backup_repo']}. Done.")
-            self.reply(200, f"<h1>Done.</h1><p>Your agent backs up to <b>{app['owner']}/{app['backup_repo']}</b>. "
+            print(f"github: installed. Workspace -> {workspace}, chat log -> {history}. Done.")
+            self.reply(200, f"<h1>Done.</h1><p>Workspace backs up to <b>{workspace or '(none picked)'}</b>, "
+                            f"conversations to <b>{history or '(no repo ending in -history or -chats)'}</b>. "
                             "You can close this tab.</p>")
             threading.Thread(target=self.server.shutdown).start()
         else:

@@ -4,7 +4,7 @@ from db import connect
 from agent import run_agent
 from commit import commit
 from dream import dream
-from history import log
+from history import backup as backup_history, log
 
 db = connect()
 
@@ -109,17 +109,18 @@ while True:
         continue
 
     # /commit: if agent/ changed, a fresh agent reviews and commits; then we
-    # push the history to GitHub (see commit.py).
+    # push it to GitHub (see commit.py), and the conversation log (history.py).
     if event["text"].strip() == "/commit":
         try:
             result, backup = commit()
+            chat_log = backup_history()
         except Exception as error:
             db.execute("UPDATE events SET status = 'failed', reply = ? WHERE id = ?", (str(error), event["id"]))
             print(f"worker: #{event['id']} commit failed    {error}")
             continue
         text = result["text"] if result else "Nothing to commit."
-        reply_to([event], f"{text}\nBackup: {backup}")
-        print(f"worker: #{event['id']} /commit -> {text!r}  backup: {backup}")
+        reply_to([event], f"{text}\nBackup: {backup}\nChat log: {chat_log}")
+        print(f"worker: #{event['id']} /commit -> {text!r}  backup: {backup}  chat log: {chat_log}")
         continue
 
     # Batching: if it's a user message, also claim every other pending user

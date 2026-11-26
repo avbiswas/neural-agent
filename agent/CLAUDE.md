@@ -20,7 +20,7 @@ wrong, fix it.
 
 `history/` has a log of every conversation, one file a day (`history/2026-11-26.md`),
 written by the harness: the person's messages and your replies, in chat and in
-site chats. When they refer to something you don't remember, grep it. Never edit it.
+site chats. When they refer to something you don't remember, grep it. It's read-only.
 
 @memory/instructions.md
 @memory/index.md

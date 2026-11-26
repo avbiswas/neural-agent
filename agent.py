@@ -124,8 +124,9 @@ def prepare_repo():
         git("init", "-q", "-b", "main")
         git("config", "user.name", "agent")
         git("config", "user.email", "agent@localhost")
-        # Never commit things that look like secrets, whatever the agent writes.
-        (WORKSPACE_GIT / "info" / "exclude").write_text(".env*\n*.key\nsecrets/\n")
+    # Never commit things that look like secrets, whatever the agent writes; and
+    # history/ is the conversation log, which has its own repo (history.py).
+    (WORKSPACE_GIT / "info" / "exclude").write_text(".env*\n*.key\nsecrets/\nhistory/\n")
 
 
 def mcp_config():

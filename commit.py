@@ -8,7 +8,6 @@ GitHub as a backup.
 """
 import os
 import subprocess
-import urllib.error
 
 import github
 from agent import ROOT, WORKSPACE, WORKSPACE_GIT, run_agent
@@ -46,18 +45,10 @@ def push():
         backup_git("init", "-q", "--bare", "-b", "main")
     if backup_git("fetch", "-q", f"file://{WORKSPACE_GIT}", "+main:main").returncode:
         return "nothing to back up yet"
-    repo = app["backup_repo"]  # the repo you picked when installing the app
-    try:
-        token = github.token(app, [repo], {"contents": "write"})
-    except urllib.error.HTTPError as error:
-        return f"not backed up: GitHub refused a token for {repo} ({error.code}). Is the app installed on it?"
-    url = f"https://x-access-token:{token}@github.com/{app['owner']}/{repo}.git"
-    result = backup_git("push", "--porcelain", url, "main")
-    if result.returncode == 0:
-        return "already backed up" if "[up to date]" in result.stdout else "pushed to GitHub"
-    if "rejected" in result.stdout + result.stderr:
-        return "not backed up: GitHub has commits we don't (was history rewritten?)"
-    return "not backed up: " + (result.stderr.strip().replace(token, "***") or "push failed")
+    workspace, _ = github.pick_repos(app)
+    if not workspace:
+        return "not backed up (which repo is the workspace? see ONBOARDING.md)"
+    return github.push(app, BACKUP_GIT, workspace)
 
 
 def commit():
