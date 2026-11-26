@@ -32,7 +32,7 @@ while True:
             what = f"A follow-up you scheduled has fired (timer #{timer['id']})"
         # A harness command like /dream goes in as is: the worker handles it, not the agent.
         text = timer["prompt"] if timer["prompt"].startswith("/") else f"{what}: {timer['prompt']}"
-        db.execute("INSERT INTO events (source, text) VALUES ('timer', ?)", (text,))
+        db.execute("INSERT INTO events (source, text, model) VALUES ('timer', ?, ?)", (text, timer["model"]))
         print(f"scheduler: timer #{timer['id']} fired -> inbox   {timer['prompt']!r}")
     db.execute("COMMIT")
     time.sleep(1)

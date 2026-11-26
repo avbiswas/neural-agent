@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS events (
     id         INTEGER PRIMARY KEY,
     source     TEXT NOT NULL,                 -- who woke the agent: 'cli', later 'telegram', 'timer'
     text       TEXT NOT NULL,
+    model      TEXT,                          -- set by a timer: 'sonnet' | 'opus' (chat: always sonnet)
     status     TEXT NOT NULL DEFAULT 'pending',  -- pending -> processing -> done | failed
     reply      TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -32,6 +33,7 @@ CREATE TABLE IF NOT EXISTS timers (
     prompt     TEXT NOT NULL,                 -- what the agent should do when it fires
     due_at     TEXT NOT NULL,                 -- UTC, same format as CURRENT_TIMESTAMP
     cron       TEXT,                          -- set for a schedule: '0 8 * * *' (local time)
+    model      TEXT NOT NULL DEFAULT 'sonnet',  -- which model runs it: 'sonnet' | 'opus'
     status     TEXT NOT NULL DEFAULT 'pending',  -- pending -> fired | cancelled (a schedule stays pending)
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -68,4 +70,10 @@ def connect():
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA journal_mode=WAL")  # readers don't block the writer
     db.executescript(SCHEMA)
+    # Columns added after the first release: add them to an older database.
+    for table, column in [("events", "model TEXT"), ("timers", "model TEXT NOT NULL DEFAULT 'sonnet'")]:
+        try:
+            db.execute(f"ALTER TABLE {table} ADD COLUMN {column}")
+        except sqlite3.OperationalError:
+            pass  # already there
     return db

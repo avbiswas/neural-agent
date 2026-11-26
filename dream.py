@@ -31,8 +31,9 @@ def dream():
     started = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     # A fresh session every time: a dream works from the transcripts and the
     # memory files, not from anything it remembers.
+    # Opus: deciding what's worth remembering is the careful part.
     result = run_agent(f"Time to dream. Use the dreaming skill to review what the "
-                       f"person said since {since} and update memory/ to match.")
+                       f"person said since {since} and update memory/ to match.", model="opus")
     LAST_DREAM.write_text(started)  # only after a dream that finished
 
     # The harness checks the agent's work: if the always-loaded files grew too
@@ -46,7 +47,7 @@ def dream():
             "detailed or rarely needed orders out of instructions.md into a note "
             "(with a line in index.md), merge notes on related topics into one, and "
             "shorten index lines. Don't lose information, move it. Finish with a "
-            "short summary of what you changed.", result["session_id"])
+            "short summary of what you changed.", result["session_id"], model="opus")
         result["text"] += "\n\nCleanup: " + cleanup["text"]
         result["cost_usd"] += cleanup["cost_usd"]
         if oversized():

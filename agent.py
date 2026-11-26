@@ -57,7 +57,15 @@ stay quiet.
 
 Some actions need the person's approval: they get asked, and your tool call \
 waits for their answer. If they say no, don't try to get the same thing done \
-another way. Tell them what you couldn't do."""
+another way. Tell them what you couldn't do.
+
+You run on a fast model. Hand heavy work (research, coding, building sites or \
+complex HTML, multi-step plans) to the `opus` agent with the Task tool, and do \
+the same whenever the person asks for Opus. It doesn't see this chat: brief it \
+fully (the goal, what the person said, links, constraints). Before you hand \
+off, send a short heads-up with send_message. When it's done, pass its result \
+on. Answer everything else yourself. Timers can run on Opus too: set \
+model="opus" on set_followup or create_schedule when the job needs it."""
 
 
 def read_env_file(*names):
@@ -151,8 +159,9 @@ def prepare_home():
             (MEMORY / name).write_text(heading + "\n")
 
 
-def run_agent(prompt, session_id=None, more_messages=lambda: []):
-    """Run one turn. session_id=None starts a new session, otherwise resumes it.
+def run_agent(prompt, session_id=None, more_messages=lambda: [], model="sonnet"):
+    """Run one turn on `model` ('sonnet' or 'opus'). session_id=None starts a
+    new session, otherwise resumes it (keep one model per session).
 
     Steering: while the turn runs we call more_messages() about once a second.
     Any texts it returns are written to the running process, and Claude reads
@@ -162,7 +171,7 @@ def run_agent(prompt, session_id=None, more_messages=lambda: []):
     # until we close stdin.
     command = ["-p", "--input-format", "stream-json",
                "--output-format", "stream-json", "--verbose",
-               "--model", "sonnet", "--tools", TOOLS,
+               "--model", model, "--tools", TOOLS,
                "--append-system-prompt", APPEND_SYSTEM_PROMPT,
                "--mcp-config", json.dumps(mcp_config()),
                # Auto mode: a classifier lets ordinary commands run and blocks
@@ -195,7 +204,8 @@ def run_agent(prompt, session_id=None, more_messages=lambda: []):
     threading.Thread(target=read_stdout, daemon=True).start()
 
     send(prompt)
-    results, last_check, deadline, stdin_open = [], 0, time.time() + 600, True
+    # 30 minutes: enough for a long task handed to Opus (see agent/.claude/agents).
+    results, last_check, deadline, stdin_open = [], 0, time.time() + 1800, True
     context_tokens = 0  # size of the conversation at the latest model call
     while True:
         if stdin_open and time.time() - last_check >= 1:
@@ -232,7 +242,7 @@ def run_agent(prompt, session_id=None, more_messages=lambda: []):
         # The saved session is gone (deleted, or a different machine): start fresh.
         if session_id and "No conversation found" in error:
             print("agent: session not found, starting a new one")
-            return run_agent(prompt, None, more_messages)
+            return run_agent(prompt, None, more_messages, model)
         raise RuntimeError(error)
     usage = [r["usage"] for r in results]
     return {

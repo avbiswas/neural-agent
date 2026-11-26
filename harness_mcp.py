@@ -39,12 +39,16 @@ def send_message(text: str) -> str:
 
 
 @server.tool()
-def set_followup(prompt: str, in_minutes: float | None = None, at: str | None = None) -> str:
+def set_followup(prompt: str, in_minutes: float | None = None, at: str | None = None,
+                 model: str = "sonnet") -> str:
     """Wake yourself up later. When the timer fires, a new session of you
     starts with `prompt` as its task, and it remembers nothing of this
     conversation: write the prompt so it makes sense on its own (who, what,
     why, any links). Give either in_minutes, or at as a local time like
-    '2026-11-26 18:00'."""
+    '2026-11-26 18:00'. model: 'sonnet' (default: checks, reminders, monitoring)
+    or 'opus' (research, writing, coding)."""
+    if model not in ("sonnet", "opus"):
+        return "error: model is 'sonnet' or 'opus'"
     if at:
         due = datetime.fromisoformat(at).astimezone(timezone.utc)  # naive = local time
     elif in_minutes is not None:
@@ -53,25 +57,29 @@ def set_followup(prompt: str, in_minutes: float | None = None, at: str | None = 
         return "error: give in_minutes or at"
     if due < datetime.now(timezone.utc):
         return "error: that time has already passed"
-    timer = connect().execute("INSERT INTO timers (prompt, due_at) VALUES (?, ?) RETURNING *",
-                              (prompt, due.strftime(DB_TIME))).fetchone()
+    timer = connect().execute("INSERT INTO timers (prompt, due_at, model) VALUES (?, ?, ?) RETURNING *",
+                              (prompt, due.strftime(DB_TIME), model)).fetchone()
     return f"timer #{timer['id']} set for {local(timer['due_at'])}"
 
 
 @server.tool()
-def create_schedule(cron: str, prompt: str) -> str:
+def create_schedule(cron: str, prompt: str, model: str = "sonnet") -> str:
     """Run `prompt` repeatedly, on a cron schedule in the person's local time,
     e.g. '0 8 * * *' for every day at 8:00, '0 9 * * 1' for Mondays at 9:00.
     Each run is a new session of you that remembers nothing else, so write the
-    prompt to stand on its own. Runs are silent unless you use send_message."""
+    prompt to stand on its own. Runs are silent unless you use send_message.
+    model: 'sonnet' (default: checks, digests, monitoring) or 'opus' (research,
+    writing, coding)."""
+    if model not in ("sonnet", "opus"):
+        return "error: model is 'sonnet' or 'opus'"
     if not croniter.is_valid(cron):
         return f"error: {cron!r} is not a valid cron expression"
     db = connect()
     count = db.execute("SELECT count(*) FROM timers WHERE cron IS NOT NULL AND status = 'pending'").fetchone()[0]
     if count >= MAX_SCHEDULES:
         return f"error: already {count} schedules. Cancel one first (list_timers)."
-    timer = db.execute("INSERT INTO timers (prompt, due_at, cron) VALUES (?, ?, ?) RETURNING *",
-                       (prompt, next_run(cron), cron)).fetchone()
+    timer = db.execute("INSERT INTO timers (prompt, due_at, cron, model) VALUES (?, ?, ?, ?) RETURNING *",
+                       (prompt, next_run(cron), cron, model)).fetchone()
     return f"schedule #{timer['id']} set ({cron}), first run {local(timer['due_at'])}"
 
 
@@ -80,7 +88,7 @@ def list_timers() -> str:
     """List your pending follow-ups and schedules, with when each runs next."""
     timers = connect().execute("SELECT * FROM timers WHERE status = 'pending' ORDER BY due_at")
     return "\n".join(f"#{t['id']} next {local(t['due_at'])}" + (f" (repeats: {t['cron']})" if t["cron"] else "")
-                     + f": {t['prompt']}" for t in timers) or "no timers"
+                     + f" [{t['model']}]: {t['prompt']}" for t in timers) or "no timers"
 
 
 @server.tool()

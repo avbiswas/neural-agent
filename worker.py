@@ -160,9 +160,11 @@ while True:
             why += f", with the last {history.count('Person: ')} exchanges"
     else:
         session_id, why = None, "new (timer runs get their own session)"
-    print(f"        session: {why}")
+    print(f"        session: {why}, model: {event['model'] or 'sonnet'}")
     try:
-        result = run_agent(prompt, session_id, more_messages)
+        # The chat is one Sonnet session (it hands heavy work to Opus itself);
+        # a timer runs on the model it was set with.
+        result = run_agent(prompt, session_id, more_messages, model=event["model"] or "sonnet")
     except Exception as error:
         db.executemany("UPDATE events SET status = 'failed', reply = ? WHERE id = ?",
                        [(str(error), e["id"]) for e in events])

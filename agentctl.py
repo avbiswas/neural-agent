@@ -32,7 +32,7 @@ elif command in ("approve", "deny"):
 elif command == "watch":
     # The whole pipeline on one screen, refreshed twice a second.
     views = {  # name: (query, column widths)
-        "timers": ("SELECT id, status, time(due_at, 'localtime'), cron, prompt FROM timers", (4, 10, 9, 14, 50)),
+        "timers": ("SELECT id, status, time(due_at, 'localtime'), cron, model, prompt FROM timers", (4, 10, 9, 14, 7, 50)),
         "events": ("SELECT id, source, status, text, reply FROM events", (4, 9, 11, 40, 40)),
         "outbox": ("SELECT id, channel, status, text FROM outbox", (4, 9, 8, 50)),
         "approvals": ("SELECT id, channel, status, request FROM approvals", (4, 9, 9, 60)),
