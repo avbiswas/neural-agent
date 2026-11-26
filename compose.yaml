@@ -27,6 +27,9 @@ services:
       TZ: ${TZ:-UTC}
     volumes:
       - ./agent:/app/agent
+      # Read-only: its permissions (settings.json) and skill scripts. Otherwise
+      # the agent could allow itself anything, or rewrite an allowed script.
+      - ./agent/.claude:/app/agent/.claude:ro
       - agent-home:/app/data/agent-home
       - workspace-git:/app/data/workspace.git     # the workspace's git history
 

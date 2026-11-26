@@ -53,7 +53,11 @@ that repeats ("every morning", "each Monday") use create_schedule. When a timer 
 fires, a fresh session of you gets its prompt. In that turn nobody is waiting \
 for your final message and it is never delivered: if the person should hear \
 something, say it with send_message. If there is nothing worth telling them, \
-stay quiet."""
+stay quiet.
+
+Some actions need the person's approval: they get asked, and your tool call \
+waits for their answer. If they say no, don't try to get the same thing done \
+another way. Tell them what you couldn't do."""
 
 
 def read_env_file(*names):
@@ -88,6 +92,7 @@ def agent_env():
         "CLAUDE_CODE_OAUTH_TOKEN": token,          # subscription login via `claude setup-token`
         "DISABLE_AUTOUPDATER": "1",                # don't install updates into the agent's home
         "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",    # memory is ours to build, not Claude Code's
+        "MCP_TOOL_TIMEOUT": "600000",              # let `approve` wait for the person (ms)
         # Where the agent's sites are reachable (the sites skill prints links with it).
         "SITES_URL": config.get("SITES_URL", "http://127.0.0.1:8080"),
         # Plain `git` in agent/ uses the workspace repo. (No GitHub login: the
@@ -157,8 +162,13 @@ def run_agent(prompt, session_id=None, more_messages=lambda: []):
                "--output-format", "stream-json", "--verbose",
                "--model", "sonnet", "--tools", TOOLS,
                "--append-system-prompt", APPEND_SYSTEM_PROMPT,
-               "--mcp-config", json.dumps(mcp_config())]
-    # What the agent may do without asking lives in agent/.claude/settings.json.
+               "--mcp-config", json.dumps(mcp_config()),
+               # Auto mode: a classifier lets ordinary commands run and blocks
+               # risky ones. Writes to outside systems (the "ask" list in
+               # agent/.claude/settings.json) always go to the person, through
+               # our MCP server (approve in harness_mcp.py).
+               "--permission-mode", "auto",
+               "--permission-prompt-tool", "mcp__harness__approve"]
     if session_id:
         command += ["--resume", session_id]
     # Claude runs in the runner container. We send it the arguments, and from

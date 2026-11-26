@@ -35,6 +35,14 @@ CREATE TABLE IF NOT EXISTS timers (
     status     TEXT NOT NULL DEFAULT 'pending',  -- pending -> fired | cancelled (a schedule stays pending)
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS approvals (
+    id         INTEGER PRIMARY KEY,
+    channel    TEXT NOT NULL,                 -- where to ask: 'cli' or 'telegram'
+    request    TEXT NOT NULL,                 -- what the agent wants to do, as the person sees it
+    status     TEXT NOT NULL DEFAULT 'pending',  -- pending -> approved | denied | expired
+    shown      INTEGER NOT NULL DEFAULT 0,    -- the channel has put it in front of the person
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 """
 DB_TIME = "%Y-%m-%d %H:%M:%S"  # how SQLite's CURRENT_TIMESTAMP writes UTC
 

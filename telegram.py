@@ -2,6 +2,7 @@
 
     In:  long-poll getUpdates -> a row in `events` (source 'telegram')
     Out: pending 'telegram' rows in `outbox` -> sendMessage
+    Approvals: a message with Approve / Deny buttons; a press updates `approvals`
 
     uv run telegram.py
 """
@@ -50,6 +51,9 @@ def receive():
         for update in updates:
             offset = update["update_id"] + 1
             OFFSET_FILE.write_text(str(offset))  # "seen", even if we crash below
+            if "callback_query" in update:  # someone pressed Approve / Deny
+                answer(db, update["callback_query"])
+                continue
             message = update.get("message")
             if not message or "text" not in message:
                 continue
@@ -63,6 +67,38 @@ def receive():
             # 👀 = "got it". The reply comes later, through the outbox.
             call("setMessageReaction", chat_id=chat_id, message_id=message["message_id"],
                  reaction=[{"type": "emoji", "emoji": "👀"}])
+
+
+def answer(db, press):
+    """Record the person's decision, and replace the buttons with it."""
+    if press["message"]["chat"]["id"] != CHAT_ID:
+        return
+    decision, approval_id = press["data"].split(":")
+    decided = db.execute("UPDATE approvals SET status = ? WHERE id = ? AND status = 'pending'",
+                         (decision, int(approval_id))).rowcount
+    call("answerCallbackQuery", callback_query_id=press["id"],
+         text=decision.capitalize() if decided else "Too late: this request has expired")
+    if decided:
+        label = "✅ Approved" if decision == "approved" else "❌ Denied"
+        call("editMessageText", chat_id=CHAT_ID, message_id=press["message"]["message_id"],
+             text=f"{press['message']['text']}\n\n{label}")
+    print(f"telegram: approval #{approval_id} {decision if decided else 'expired'}")
+
+
+def ask(db):
+    """Show new approval requests, with buttons."""
+    for approval in db.execute("""SELECT * FROM approvals
+                                  WHERE channel = 'telegram' AND NOT shown ORDER BY id""").fetchall():
+        try:
+            call("sendMessage", chat_id=CHAT_ID, text=f"🔐 May I {approval['request']}",
+                 reply_markup={"inline_keyboard": [[
+                     {"text": "✅ Approve", "callback_data": f"approved:{approval['id']}"},
+                     {"text": "❌ Deny", "callback_data": f"denied:{approval['id']}"}]]})
+        except Exception as error:
+            print(f"telegram: asking failed ({error}), will retry")
+            return
+        db.execute("UPDATE approvals SET shown = 1 WHERE id = ?", (approval["id"],))
+        print(f"telegram: asked approval #{approval['id']}")
 
 
 def deliver():
@@ -82,6 +118,7 @@ def deliver():
                 break  # it stays 'pending', so the next loop tries again
             db.execute("UPDATE outbox SET status = 'sent' WHERE id = ?", (message["id"],))
             print(f"telegram: out {message['text'][:60]!r}")
+        ask(db)
 
         busy = db.execute("""
             SELECT 1 FROM events WHERE source = 'telegram' AND status = 'processing'

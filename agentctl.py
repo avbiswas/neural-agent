@@ -3,6 +3,7 @@
     uv run agentctl.py say "hello"     # put an event in the inbox
     uv run agentctl.py inbox           # show recent events
     uv run agentctl.py timers          # show recent timers
+    uv run agentctl.py approve 3       # answer approval request #3 (or: deny 3)
     uv run agentctl.py watch           # live view: timers -> events -> outbox
 """
 import sys
@@ -23,12 +24,18 @@ elif command == "inbox":
 elif command == "timers":
     for t in db.execute("SELECT * FROM timers ORDER BY id DESC LIMIT 10"):
         print(f"#{t['id']:<3} {t['status']:<10} due {t['due_at']} UTC  {t['cron'] or '':<12} {t['prompt'][:50]!r}")
+elif command in ("approve", "deny"):
+    status = "approved" if command == "approve" else "denied"
+    done = db.execute("UPDATE approvals SET status = ? WHERE id = ? AND status = 'pending'",
+                      (status, int(args[0]))).rowcount
+    print(status if done else f"no pending approval #{args[0]}")
 elif command == "watch":
     # The whole pipeline on one screen, refreshed twice a second.
     views = {  # name: (query, column widths)
         "timers": ("SELECT id, status, time(due_at, 'localtime'), cron, prompt FROM timers", (4, 10, 9, 14, 50)),
         "events": ("SELECT id, source, status, text, reply FROM events", (4, 9, 11, 40, 40)),
         "outbox": ("SELECT id, channel, status, text FROM outbox", (4, 9, 8, 50)),
+        "approvals": ("SELECT id, channel, status, request FROM approvals", (4, 9, 9, 60)),
     }
     while True:
         screen = []

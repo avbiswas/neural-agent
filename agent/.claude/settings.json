@@ -19,6 +19,18 @@
       "Bash(git reset:*)",
       "Bash(git rebase:*)",
       "Bash(git commit --amend:*)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(gh:*)",
+      "Bash(ssh:*)",
+      "Bash(scp:*)",
+      "Bash(rsync:*)",
+      "Bash(npm publish:*)",
+      "Bash(docker push:*)",
+      "Bash(fly:*)",
+      "Bash(flyctl:*)",
+      "Bash(vercel:*)"
     ]
   }
 }

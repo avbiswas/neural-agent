@@ -16,4 +16,9 @@ while True:
     """).fetchall():
         print(f"\nagent> {message['text']}")
         db.execute("UPDATE outbox SET status = 'sent' WHERE id = ?", (message["id"],))
+    # Approval requests: answer them with agentctl.
+    for approval in db.execute("SELECT * FROM approvals WHERE channel = 'cli' AND NOT shown").fetchall():
+        print(f"\nagent> May I {approval['request']}\n"
+              f"       uv run agentctl.py approve {approval['id']}   (or deny {approval['id']})")
+        db.execute("UPDATE approvals SET shown = 1 WHERE id = ?", (approval["id"],))
     time.sleep(0.5)

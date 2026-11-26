@@ -5,7 +5,10 @@ agent.py), and only this side touches the database.
     send_message                            talk to the person mid-turn
     set_followup / create_schedule           wake yourself up later, once or repeatedly
     list_timers / cancel_timer               see and cancel both
+    approve                                  Claude Code asks it before anything not allowed
 """
+import asyncio
+import json
 import os
 from datetime import datetime, timedelta, timezone
 
@@ -16,6 +19,7 @@ from db import DB_TIME, connect, last_channel, next_run
 
 server = MCPServer("harness")
 MAX_SCHEDULES = 10                       # so a confused agent can't flood its own inbox
+APPROVAL_TIMEOUT = 300                   # seconds to wait for the person before saying no
 
 
 def local(utc_text):
@@ -85,6 +89,37 @@ def cancel_timer(timer_id: int) -> str:
     cancelled = connect().execute("""UPDATE timers SET status = 'cancelled'
                                      WHERE id = ? AND status = 'pending'""", (timer_id,)).rowcount
     return f"timer #{timer_id} cancelled" if cancelled else f"no pending timer #{timer_id}"
+
+
+def describe(tool_name, tool_input):
+    """What the agent wants to do, in a form a person can judge quickly."""
+    if tool_name == "Bash":
+        why = f"\n\n({tool_input['description']})" if tool_input.get("description") else ""
+        return f"run a command:\n\n{tool_input['command']}{why}"
+    return f"use {tool_name}:\n\n{json.dumps(tool_input, indent=1)[:1500]}"
+
+
+@server.tool()
+async def approve(tool_name: str, input: dict, tool_use_id: str | None = None) -> dict:
+    """The harness's permission check. Claude Code calls this itself whenever
+    you try something that isn't allowed by default; don't call it yourself."""
+    # Claude Code waits on this call (--permission-prompt-tool in agent.py).
+    # We ask the person through their channel, and wait for their answer.
+    db = connect()
+    approval = db.execute("INSERT INTO approvals (channel, request) VALUES (?, ?) RETURNING id",
+                          (last_channel(db), describe(tool_name, input))).fetchone()
+    for _ in range(APPROVAL_TIMEOUT):
+        await asyncio.sleep(1)  # async, so other tool calls (send_message...) keep working
+        status = db.execute("SELECT status FROM approvals WHERE id = ?", (approval["id"],)).fetchone()["status"]
+        if status != "pending":
+            break
+    else:
+        db.execute("UPDATE approvals SET status = 'expired' WHERE id = ?", (approval["id"],))
+        status = "expired"
+    if status == "approved":
+        return {"behavior": "allow", "updatedInput": input}
+    reason = "The person said no." if status == "denied" else "The person didn't answer in time."
+    return {"behavior": "deny", "message": reason}
 
 
 if __name__ == "__main__":
