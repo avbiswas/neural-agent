@@ -1,118 +1,125 @@
-# Onboarding: set up your own always-on agent
+# Set up your own always-on agent
 
-About 20 minutes. You end up with an agent you can message on Telegram, that
-runs on your server, keeps its files and your conversations backed up in two
-private GitHub repos, and is reachable only from your own devices.
+You'll end up with a personal AI assistant that you message on Telegram. It
+runs all the time on your Mac or on a small server, remembers what you tell it,
+can build private web pages for you, and backs itself up to your GitHub.
+Only you can reach it.
 
-## What you need
+It takes about 20 minutes. You don't need to know how to code: you'll copy a
+few commands and paste a few keys.
 
-- A server with Docker: a small Linux VPS (2 GB RAM is plenty) or, to try it
-  out, your laptop.
-- A Claude subscription (Pro or Max), and Claude Code on your laptop to create
-  a login token.
-- Telegram, a GitHub account, and Tailscale (free) on the server and your phone.
+## Before you start: the accounts
 
-## 1. Get the code
-
-    git clone <this repo> neural-agent && cd neural-agent
-
-## 2. Fill in `.env`
-
-Create `.env` next to `compose.yaml`. It never leaves the server, and each
-service only gets the lines it needs.
-
-    CLAUDE_CODE_OAUTH_TOKEN=...       # on your laptop: `claude setup-token`
-    TELEGRAM_BOT_TOKEN=...            # message @BotFather on Telegram: /newbot
-    TELEGRAM_CHAT_ID=...              # step 6 tells you this
-    TZ=Europe/Berlin                  # your timezone, for "remind me at 6pm"
-    SITES_URL=https://<server>.<tailnet>.ts.net
-    SECRETS_URL=https://<server>.<tailnet>.ts.net:8443
-
-## 3. Private access with Tailscale
-
-Nothing is published to the internet. The agent's sites (port 8080) and your
-secrets page (port 8081) listen on the server only; Tailscale makes them
-reachable from your devices and nobody else's:
-
-    tailscale serve --bg 8080                  # sites:   https://<server>.<tailnet>.ts.net
-    tailscale serve --bg --https 8443 8081     # secrets: https://<server>.<tailnet>.ts.net:8443
-
-Use `serve`, never `funnel` (funnel makes it public).
-
-## 4. Create exactly two GitHub repos
-
-| Repo | What goes in it | Written by |
+| | What for | Cost |
 |---|---|---|
-| `agent-workspace` | the agent's files: memory, sites, skills, tools | the agent commits, the harness pushes |
-| `agent-history` | your conversations, one markdown file a day | the harness only |
+| **Claude** (Pro or Max) | the brain | your subscription |
+| **Telegram** on your phone | how you talk to it | free |
+| **Tailscale** | so its pages open only on your devices | free |
+| **GitHub** | backups (optional, can be done later) | free |
+| **A server** (only if it should run when your Mac is off) | see Option B | about €4 a month |
 
-For both: **Private**, and **empty** (no README, no .gitignore, no license: the
-first push must find nothing there). Any names work, as long as the
-conversations repo ends in `-history` or `-chats`.
+Install Tailscale on your phone and your laptop now, and sign in on both with
+the same account: https://tailscale.com/download
 
-On github.com: **New repository**, or with the GitHub CLI:
+## Option A: run it on your Mac
 
-    gh repo create agent-workspace --private
-    gh repo create agent-history --private
+1. **Install Docker Desktop** from https://www.docker.com/products/docker-desktop/
+   and open it (wait until it says it's running).
+2. **Download the agent.** Open the Terminal app and paste:
 
-## 5. Connect GitHub (a GitHub App that you own)
+       git clone https://github.com/avbiswas/neural-agent.git
+       cd neural-agent
 
-    docker compose run --rm --service-ports github-setup
+   (If your Mac asks to install developer tools, click Install, then paste
+   the two lines again.)
+3. **Run setup:**
 
-Open http://localhost:8090. On a server, tunnel the port first from your
-laptop: `ssh -L 8090:localhost:8090 you@server`.
+       ./setup
 
-1. **Create GitHub App.** GitHub shows the app pre-filled. Check it asks for
-   only these permissions, then click **Create GitHub App**:
-   - Repository contents: **Read and write** (to push the backups)
-   - Metadata: **Read-only** (required by GitHub for every app)
-   - No webhooks, and installable only on your account.
-2. **Install.** Choose **Only select repositories** and pick exactly
-   `agent-workspace` and `agent-history`. Not "All repositories".
-3. The page says which repo gets what. Done: the setup container exits.
+   Prefer clicking to typing? Run `./setup --web` and open
+   http://localhost:8090 instead. Same steps.
 
-What this app can do: read and write code in those two repos. What it can't:
-see any other repo, create or delete repos, change settings, or force-push
-(the harness never forces, so your history can't be rewritten).
+The agent runs while your Mac is awake and Docker Desktop is open.
 
-The app's private key stays on your server, in a volume the agent can't read.
-Each push uses a fresh token that lasts an hour and covers one repo.
+## Option B: run it on a server (always on)
 
-## 6. Start it
+1. **Rent a server.** At https://www.hetzner.com/cloud: create a project, Add
+   Server, location close to you, image **Ubuntu 24.04**, type **CX22**. Under
+   SSH keys, either add yours or skip it (Hetzner then emails you a root
+   password). Create. Note the server's IP address.
+2. **Log in** from your laptop's terminal. The `-L` part makes setup's web page
+   and the GitHub step open in your laptop's browser:
 
-    docker compose up -d --build
+       ssh -L 8090:localhost:8090 root@<SERVER-IP>
 
-Message your bot on Telegram. The first time, it ignores you and logs your chat
-id: `docker compose logs telegram`. Put it in `.env` as `TELEGRAM_CHAT_ID`, run
-`docker compose up -d` again, and say hi.
+3. **Install Docker and download the agent:**
 
-## 7. Check that everything works
+       curl -fsSL https://get.docker.com | sh
+       git clone https://github.com/avbiswas/neural-agent.git
+       cd neural-agent
 
-| Try | Expect |
-|---|---|
-| "hi" on Telegram | 👀, then a reply |
-| `/commit` | `Backup: pushed to agent-workspace` and `Chat log: pushed to agent-history` |
-| "make me a page comparing 3 laptops" | a link to a page on your tailnet, with a chat button |
-| "push the workspace with git push" | an Approve / Deny message (writes to outside systems ask first) |
-| open the secrets page | your saved keys, by name only |
+4. **Run setup:**
 
-## Who can reach what
+       ./setup
 
-| | The agent | The harness |
-|---|---|---|
-| Claude login | yes (it runs on it) | no |
-| Telegram token | no | the Telegram service only |
-| GitHub app key | no | yes |
-| Keys from the secrets page | yes, one command at a time, with your approval | no |
-| Conversation log | read only | writes it |
+   (or `./setup --web` and open http://localhost:8090 on your laptop).
 
-## Later
+## What setup asks you
 
-- **Give the agent another repo:** GitHub, Settings, Applications, your app,
-  Configure, add the repo. No restart.
-- **More permissions** (e.g. pull requests): edit the app under Settings,
-  Developer settings, GitHub Apps, then accept the request on the installation.
-- **Cut it off:** uninstall or delete the app on GitHub. Every token stops
-  working within the hour.
-- **API keys for the agent** (Fly, Vercel...): it asks you with a link to the
-  secrets page when it needs one.
+Each answer is checked right away, so a typo can't slip through.
+
+1. **Claude login.** Setup shows a link: open it, log in to Claude, paste the
+   code back. Then paste the token it prints (starts with `sk-ant-oat`).
+2. **Telegram.** On Telegram, open **@BotFather**, send `/newbot`, choose a
+   name and a username ending in `bot`. Paste the token it gives you. Then
+   send your new bot a message ("hi"): setup spots it, and from then on your
+   agent answers only you.
+3. **Timezone.** Already guessed, just confirm (e.g. `Europe/Berlin`).
+4. **Tailscale.** In the Tailscale admin console:
+   - DNS page (https://login.tailscale.com/admin/dns): turn on **MagicDNS**
+     and **HTTPS Certificates**.
+   - Keys page (https://login.tailscale.com/admin/settings/keys): **Generate
+     auth key** with the default settings, and paste it.
+5. **GitHub backups** (optional, you can skip and run `./setup` again later):
+   - Create two **private, empty** repos (don't tick "Add a README"):
+     `agent-workspace` (the agent's files) and `agent-history` (your
+     conversations). Setup's page has links that fill in the form for you.
+   - Click **Create GitHub App** on setup's page. GitHub shows the app with
+     everything filled in: click **Create GitHub App**.
+   - GitHub asks where to install it: choose **Only select repositories**
+     and pick exactly those two repos. Click **Install**.
+
+   The app can read and write code in those two repos only. It can't see
+   your other repos, create or delete repos, or rewrite history.
+
+When setup finishes, it prints your agent's private links:
+
+    ✓ Your agent is running.
+      Chat:        your Telegram bot (say hi!)
+      Your pages:  https://agent.<your-tailnet>.ts.net
+      Secrets:     https://agent.<your-tailnet>.ts.net:8443
+
+## First things to try
+
+- Say **hi** to your bot. You'll see 👀, then an answer.
+- "Remind me to call mom in 10 minutes."
+- "Every morning at 8, send me the weather in Berlin."
+- "Make me a page comparing three laptops under €1000." You get a link, and
+  the page has a chat button for questions and changes.
+- Send it a photo or a PDF with a question.
+- Anything that acts as you outside (pushing code, deploying) asks first, with
+  Approve and Deny buttons.
+
+## Good to know
+
+- **Change anything:** run `./setup` again. It keeps what's set unless you
+  replace it.
+- **Stop / start:** `docker compose down` / `docker compose up -d` (in the
+  `neural-agent` folder).
+- **Something's off:** `docker compose logs -f worker` shows what the agent is
+  doing; `docker compose logs telegram` shows the chat side.
+- **Give it an API key** (say, to read your Fly logs): it asks you, with a link
+  to your secrets page.
+- **In Tailscale's admin console**, find the device called `agent` and choose
+  **Disable key expiry**, or it gets logged out after six months.
+- **Cut off GitHub:** on GitHub, Settings, Applications, uninstall the app.
