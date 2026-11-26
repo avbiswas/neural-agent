@@ -22,11 +22,11 @@ elif command == "inbox":
         print(f"#{e['id']:<3} {e['status']:<10} {e['text'][:40]!r:<44} {reply}")
 elif command == "timers":
     for t in db.execute("SELECT * FROM timers ORDER BY id DESC LIMIT 10"):
-        print(f"#{t['id']:<3} {t['status']:<10} due {t['due_at']} UTC  {t['prompt'][:50]!r}")
+        print(f"#{t['id']:<3} {t['status']:<10} due {t['due_at']} UTC  {t['cron'] or '':<12} {t['prompt'][:50]!r}")
 elif command == "watch":
     # The whole pipeline on one screen, refreshed twice a second.
     views = {  # name: (query, column widths)
-        "timers": ("SELECT id, status, time(due_at, 'localtime'), prompt FROM timers", (4, 10, 9, 50)),
+        "timers": ("SELECT id, status, time(due_at, 'localtime'), cron, prompt FROM timers", (4, 10, 9, 14, 50)),
         "events": ("SELECT id, source, status, text, reply FROM events", (4, 9, 11, 40, 40)),
         "outbox": ("SELECT id, channel, status, text FROM outbox", (4, 9, 8, 50)),
     }

@@ -2,18 +2,20 @@
 Claude Code starts it for each run (see --mcp-config in agent.py).
 
     send_message                            talk to the person mid-turn
-    set_followup / list_timers / cancel_timer   wake yourself up later
+    set_followup / create_schedule           wake yourself up later, once or repeatedly
+    list_timers / cancel_timer               see and cancel both
 """
 import os
 from datetime import datetime, timedelta, timezone
 
+from croniter import croniter
 from mcp.server.mcpserver import MCPServer
 
-from db import connect
+from db import DB_TIME, connect, next_run
 
 server = MCPServer("harness")
 CHANNEL = os.environ["HARNESS_CHANNEL"]  # where this run's messages go, set by agent.py
-DB_TIME = "%Y-%m-%d %H:%M:%S"            # how SQLite's CURRENT_TIMESTAMP writes UTC
+MAX_SCHEDULES = 10                       # so a confused agent can't flood its own inbox
 
 
 def local(utc_text):
@@ -52,15 +54,33 @@ def set_followup(prompt: str, in_minutes: float | None = None, at: str | None = 
 
 
 @server.tool()
+def create_schedule(cron: str, prompt: str) -> str:
+    """Run `prompt` repeatedly, on a cron schedule in the person's local time,
+    e.g. '0 8 * * *' for every day at 8:00, '0 9 * * 1' for Mondays at 9:00.
+    Each run is a new session of you that remembers nothing else, so write the
+    prompt to stand on its own. Runs are silent unless you use send_message."""
+    if not croniter.is_valid(cron):
+        return f"error: {cron!r} is not a valid cron expression"
+    db = connect()
+    count = db.execute("SELECT count(*) FROM timers WHERE cron IS NOT NULL AND status = 'pending'").fetchone()[0]
+    if count >= MAX_SCHEDULES:
+        return f"error: already {count} schedules. Cancel one first (list_timers)."
+    timer = db.execute("INSERT INTO timers (prompt, due_at, cron) VALUES (?, ?, ?) RETURNING *",
+                       (prompt, next_run(cron), cron)).fetchone()
+    return f"schedule #{timer['id']} set ({cron}), first run {local(timer['due_at'])}"
+
+
+@server.tool()
 def list_timers() -> str:
-    """List your timers that haven't fired yet."""
+    """List your pending follow-ups and schedules, with when each runs next."""
     timers = connect().execute("SELECT * FROM timers WHERE status = 'pending' ORDER BY due_at")
-    return "\n".join(f"#{t['id']} {local(t['due_at'])}: {t['prompt']}" for t in timers) or "no timers"
+    return "\n".join(f"#{t['id']} next {local(t['due_at'])}" + (f" (repeats: {t['cron']})" if t["cron"] else "")
+                     + f": {t['prompt']}" for t in timers) or "no timers"
 
 
 @server.tool()
 def cancel_timer(timer_id: int) -> str:
-    """Cancel a timer that hasn't fired yet."""
+    """Cancel a follow-up that hasn't fired yet, or stop a schedule."""
     cancelled = connect().execute("""UPDATE timers SET status = 'cancelled'
                                      WHERE id = ? AND status = 'pending'""", (timer_id,)).rowcount
     return f"timer #{timer_id} cancelled" if cancelled else f"no pending timer #{timer_id}"

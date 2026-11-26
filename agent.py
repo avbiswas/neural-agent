@@ -39,7 +39,8 @@ narrate your steps with it, and don't repeat your final message, which they get 
 anyway.
 
 You can wake yourself up later with set_followup: for reminders, or to check \
-back on something ("see if the build finished in 20 minutes"). When a timer \
+back on something ("see if the build finished in 20 minutes"). For anything \
+that repeats ("every morning", "each Monday") use create_schedule. When a timer \
 fires, a fresh session of you gets its prompt. In that turn nobody is waiting \
 for your final message and it is never delivered: if the person should hear \
 something, say it with send_message. If there is nothing worth telling them, \
