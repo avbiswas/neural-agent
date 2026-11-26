@@ -89,7 +89,7 @@ def agent_env():
     config = {**read_env_file(".env", ".envrc"), **os.environ}
     token = config.get("CLAUDE_CODE_OAUTH_TOKEN")
     if not token:
-        raise RuntimeError("No CLAUDE_CODE_OAUTH_TOKEN. Run `claude setup-token` and put it in .env")
+        raise RuntimeError("No CLAUDE_CODE_OAUTH_TOKEN. Run ./setup to add your Claude login")
     return {
         "PATH": os.environ["PATH"],
         "HOME": str(AGENT_HOME),

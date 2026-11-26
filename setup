@@ -8,6 +8,11 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# .env is the one place for these: values left over in your shell (say, from an
+# earlier manual setup) would otherwise win over it.
+unset CLAUDE_CODE_OAUTH_TOKEN TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID TS_AUTHKEY TS_HOSTNAME \
+      SITES_URL SECRETS_URL COMPOSE_PROJECT_NAME SETUP_PORT TZ
+
 if ! docker info >/dev/null 2>&1; then
   echo "Docker isn't running. On a desktop, open Docker Desktop. On a server, install it with:"
   echo "  curl -fsSL https://get.docker.com | sh"
@@ -24,7 +29,7 @@ if ! grep -q '^COMPOSE_PROJECT_NAME=' .env 2>/dev/null; then
   base=$(basename "$PWD" | tr 'A-Z' 'a-z' | tr -cd 'a-z0-9_-'); name=$base; n=1
   while true; do
     owner=$(docker ps -a --filter "label=com.docker.compose.project=$name" \
-            --format '{{.Label "com.docker.compose.project.working_dir"}}' | head -1)
+            --format '{{.Label "com.docker.compose.project.working_dir"}}' | head -1 || true)
     { [ -z "$owner" ] || [ "$owner" = "$PWD" ]; } && break
     n=$((n + 1)); name="$base-$n"   # taken by another copy on this machine
   done
@@ -53,7 +58,12 @@ for _ in $(seq 1 45); do
   sleep 2
 done
 if [ -z "$name" ]; then
-  echo "Tailscale didn't come up. See why with: docker compose logs tailscale"
+  if docker compose logs tailscale 2>&1 | grep "invalid key" >/dev/null; then
+    echo "Tailscale rejected your key: it was cut short, already used, or expired."
+    echo "Generate a new one and run ./setup again. At the Tailscale step, replace the old key with the new one."
+  else
+    echo "Tailscale didn't come up. See why with: docker compose logs tailscale"
+  fi
   exit 1
 fi
 docker compose run --rm -T setup --urls "https://$name" >/dev/null

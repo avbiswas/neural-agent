@@ -23,7 +23,7 @@ from harness.db import DB_PATH, connect
 
 config = {**read_env_file(".env", ".envrc"), **os.environ}
 if not config.get("TELEGRAM_BOT_TOKEN"):
-    sys.exit("telegram: no TELEGRAM_BOT_TOKEN. Get one from @BotFather and put it in .env")
+    sys.exit("telegram: no TELEGRAM_BOT_TOKEN. Run ./setup to connect your Telegram bot")
 API = f"https://api.telegram.org/bot{config['TELEGRAM_BOT_TOKEN']}"
 # Only this chat may talk to the agent. Anyone can find a bot, so this matters.
 CHAT_ID = int(config["TELEGRAM_CHAT_ID"]) if config.get("TELEGRAM_CHAT_ID") else None
@@ -89,7 +89,7 @@ def receive():
             chat_id = message["chat"]["id"]
             if chat_id != CHAT_ID:
                 print(f"telegram: ignored a message from chat {chat_id}. "
-                      f"If that's you, add `export TELEGRAM_CHAT_ID={chat_id}` to .envrc")
+                      f"If that's you, run ./setup again and send your bot a message when it asks")
                 continue
             text = message.get("text") or message.get("caption") or ""
             try:
