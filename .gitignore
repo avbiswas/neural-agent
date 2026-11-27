@@ -26,3 +26,4 @@ agent/uploads/
 
 # macOS
 .DS_Store
+/compose.override.yaml
